@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Simple Map</title>
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.53.1/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.53.1/mapbox-gl.css' rel='stylesheet' />
+    <meta name="viewport" content="initial-scale=1.0">
+    <meta charset="utf-8">
+    <style>
+      #map { position:absolute; top:0; bottom:0; width:100%; }
+      body { margin:0; padding:0; }
+
+    </style>
+  </head>
+  <body>
+    <div id='map'></div>
+    <script>
+        class SPARQLQueryDispatcher {
+            constructor( endpoint ) {
+                this.endpoint = endpoint;
+            }
+
+            query( sparqlQuery ) {
+                const fullUrl = this.endpoint + '?query=' + encodeURIComponent( sparqlQuery );
+                const headers = { 'Accept': 'application/sparql-results+json' };
+
+                return fetch( fullUrl, { headers } ).then( body => body.json() );
+            }
+        }
+
+        const endpointUrl = 'https://query.wikidata.org/sparql';
+        const sparqlQuery = `
+        SELECT ?item ?itemLabel ?countryLabel ?typeLabel ?geo WHERE {
+            ?item wdt:P31*/wdt:P279* wd:Q16917.
+            ?item wdt:P625 ?geo.
+            ?item wdt:P17 ?country.
+            OPTIONAL { ?item wdt:P31 ?type;}
+            SERVICE wikibase:label {
+                bd:serviceParam wikibase:language "en" .
+            }
+        }`;
+        
+        var hospitalsCollection = {
+            "type": "FeatureCollection",
+            "features": []
+        }
+
+        const queryDispatcher = new SPARQLQueryDispatcher( endpointUrl );
+        queryDispatcher.query( sparqlQuery ).then( function(value) {
+            value.results.bindings.forEach(function(element) {
+                hospitalsCollection.features.push({
+                    "type": "Feature",
+                    "geometry": { 
+                        "type": "Point",
+                        "coordinates": JSON.parse(element.geo.value
+                            .replace("Point(", "[")
+                            .replace(")", "]")
+                            .replace(new RegExp(" ", "g"), ","))
+                    },
+                    "properties": { 
+                        "title": element.itemLabel.value,
+                        "country" : element.countryLabel.value,
+                        "type" : element.typeLabel.value
+                    }
+                })
+            });
+
+            mapboxgl.accessToken = 'pk.eyJ1IjoidmlrdG9yc29saWsiLCJhIjoiY2pyM2kyeHc2MDg3bDQycDQ2dXpxemVlYiJ9.3LhNPoTaa4LqKctABvKKPQ';
+            var map = new mapboxgl.Map({
+                container: 'map', // container id
+                style: 'mapbox://styles/mapbox/light-v9', // stylesheet location
+                center: [4.907,52.372], // starting position [lng, lat]
+                zoom: 12 // starting zoom
+            });
+            
+            map.on('load', function() {
+                map.loadImage('https://cdn4.iconfinder.com/data/icons/mix-popular-glyph/96/glyph-38-512.png', function(error, image) {
+                    if (error) throw error;
+                    map.addImage('hospital', image, {"sdf": "true"});
+                });
+
+                map.addSource("hospitalsDataset", {
+                    type: "geojson",
+                    data: hospitalsCollection,
+                    cluster: true
+                });
+                
+                map.addLayer({
+                    id: "hospitals_layer_clusters",
+                    type: "symbol",
+                    source: "hospitalsDataset",
+                    filter: ["has", "point_count"],
+                    layout: {
+                        "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
+                        "text-field": ["get", "point_count"],
+                        "text-size": 40
+                    }
+                });
+
+                map.addLayer({
+                    id: "hospitals_symobl_layer",
+                    type: "symbol",
+                    source: "hospitalsDataset",
+                    filter: ["!", ["has", "point_count"]],
+                    layout: {
+                        "icon-allow-overlap": true,
+                        "icon-image": "hospital",
+                        "icon-size": 0.1,
+                    },
+                    paint: {
+                        "icon-color":[
+                            'match',
+                            ['get', 'country'],
+                            'France', "#3A49AE",
+                            'Germany', "#A69437",
+                            'Netherlands', "#37A437",
+                            'Belgium', "#AF3B3A",
+                            'United Kingdom', "#D0D98E",
+                            /* other */ "#000000"
+                        ]
+                    }
+                });
+
+                map.addLayer({
+                    id: "hospitals_title_layer",
+                    type: "symbol",
+                    source: "hospitalsDataset",
+                    filter: ["!", ["has", "point_count"]],
+                    layout: {
+                        "text-allow-overlap": true,
+                        "text-field": ['get', 'title'],
+                        "text-size": 10,
+                        "text-offset": [0, 2],
+                        "text-anchor": "top"
+                    }
+                });
+
+                map.addLayer({
+                    id: "hospitals_param1_layer",
+                    type: "symbol",
+                    source: "hospitalsDataset",
+                    filter: ["!", ["has", "point_count"]],
+                    layout: {
+                        "text-allow-overlap": true,
+                        "text-field": ['get', 'type'],
+                        "text-size": 10,
+                        "text-offset": [0, -3.5],
+                        "text-anchor": "top"
+                    }
+                });
+
+                map.on('click', 'hospitals_layer_clusters', function (e) {
+                    var features = map.queryRenderedFeatures(e.point, { layers: ['hospitals_layer_clusters'] });
+                    var clusterId = features[0].properties.cluster_id;
+                    map.getSource('hospitalsDataset').getClusterExpansionZoom(clusterId, function (err, zoom) {
+                        if (err)
+                        return;
+                    
+                        map.easeTo({
+                            center: features[0].geometry.coordinates,
+                            zoom: zoom
+                        });
+                    });
+                });
+
+                map.on('click', 'hospitals_symobl_layer', function (e) {
+                    var features = map.queryRenderedFeatures(e.point, { layers: ['hospitals_symobl_layer'] });
+                    var clusterId = features[0].properties.title
+
+                });
+
+
+            });
+
+            
+            //console.log(hospitalsCollection);
+        });
+   
+    </script>
+
+  </body>
+</html>

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Simple Map</title>
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.53.1/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.53.1/mapbox-gl.css' rel='stylesheet' />
+    <meta name="viewport" content="initial-scale=1.0">
+    <meta charset="utf-8">
+    <style>
+      #map { position:absolute; top:0; bottom:0; width:100%; }
+      body { margin:0; padding:0; }
+
+    </style>
+  </head>
+  <body>
+    <div id='map'></div>
+    <script>
+        class SPARQLQueryDispatcher {
+            constructor( endpoint ) {
+                this.endpoint = endpoint;
+            }
+
+            query( sparqlQuery ) {
+                const fullUrl = this.endpoint + '?query=' + encodeURIComponent( sparqlQuery );
+                const headers = { 'Accept': 'application/sparql-results+json' };
+
+                return fetch( fullUrl, { headers } ).then( body => body.json() );
+            }
+        }
+
+        const endpointUrl = 'https://query.wikidata.org/sparql';
+        const sparqlQuery = `
+        #Map of hospitals
+        #added 2017-08
+        #defaultView:Table
+        SELECT ?item ?itemLabel ?geo WHERE {
+            ?item wdt:P31*/wdt:P279* wd:Q16917.
+            ?item wdt:P625 ?geo.
+            SERVICE wikibase:label {
+                bd:serviceParam wikibase:language "en" .
+            }
+        }`;
+        
+        var hospitalsCollection = {
+            "type": "FeatureCollection",
+            "features": []
+        }
+
+        const queryDispatcher = new SPARQLQueryDispatcher( endpointUrl );
+        queryDispatcher.query( sparqlQuery ).then( function(value) {
+            value.results.bindings.forEach(function(element) {
+                hospitalsCollection.features.push({
+                    "type": "Feature",
+                    "geometry": { 
+                        "type": "Point",
+                        "coordinates": JSON.parse(element.geo.value
+                            .replace("Point(", "[")
+                            .replace(")", "]")
+                            .replace(new RegExp(" ", "g"), ","))
+                    },
+                    "properties": { 
+                        "name": element.itemLabel.value
+                    }
+                })
+            });
+
+            mapboxgl.accessToken = 'pk.eyJ1IjoidmlrdG9yc29saWsiLCJhIjoiY2pyM2kyeHc2MDg3bDQycDQ2dXpxemVlYiJ9.3LhNPoTaa4LqKctABvKKPQ';
+            var map = new mapboxgl.Map({
+                container: 'map', // container id
+                style: 'mapbox://styles/mapbox/light-v9', // stylesheet location
+                center: [4.907,52.372], // starting position [lng, lat]
+                zoom: 12 // starting zoom
+            });
+            
+            map.on('load', function() {
+                map.loadImage('https://upload.wikimedia.org/wikipedia/commons/e/eb/Farm-Fresh_hospital.png', function(error, image) {
+                    if (error) throw error;
+                    map.addImage('hospital', image);
+                });
+
+                map.addSource("hospitalsDataset", {
+                    type: "geojson",
+                    data: hospitalsCollection
+                });
+
+                map.addLayer({
+                    "id": "hospitals_symobl_layer",
+                    "type": "symbol",
+                    "source": "hospitalsDataset",
+                    "layout": {
+                        "icon-allow-overlap": true,
+                        "icon-image": "hospital",
+                        "icon-size": 0.8,
+                        //"text-allow-overlap": true,
+                        "text-field": ["get", "name"],
+                        "text-size": 10,
+                        "text-offset" : [0,1.2],
+                        "text-anchor": "top"
+                    }
+                });
+            });
+
+            
+            //console.log(hospitalsCollection);
+        });
+   
+    </script>
+
+  </body>
+</html>

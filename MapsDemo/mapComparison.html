@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Simple Map</title>
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.53.1/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.53.1/mapbox-gl.css' rel='stylesheet' />
+    <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.4.0/dist/leaflet.css"/>
+    <script src="https://js.arcgis.com/3.28/"></script>
+    <link rel="stylesheet" href="https://js.arcgis.com/3.28/esri/css/esri.css">
+
+    <meta name="viewport" content="initial-scale=1.0">
+
+    <meta charset="utf-8">
+    <style>
+      /* Always set the map height explicitly to define the size of the div
+       * element that contains the map. */
+      #mapGoogle {
+        height: 49%;
+        width: 50%;
+        display: inline-block;
+      }
+      #mapMapbox {
+        height: 49%;
+        width: 50%;
+        display: inline-block;
+      }
+      #mapArcGIS {
+        height: 49%;
+        width: 50%;
+        float: right;
+      }
+      #mapLeaflet {
+        height: 49%;
+        width: 50%;
+        float: right;
+      }
+      /* Optional: Makes the sample page fill the window. */
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="mapGoogle"></div>
+    <div id='mapLeaflet'></div>
+    <div id='mapMapbox'></div>
+    <div id='mapArcGIS'></div>
+    <script>
+        var map1;
+        function initMap() {
+            map1 = new google.maps.Map(document.getElementById('mapGoogle'), {
+            center: {lng: 4.907, lat: 52.372},
+            zoom: 12
+            });
+        }
+
+        mapboxgl.accessToken = 'pk.eyJ1IjoidmlrdG9yc29saWsiLCJhIjoiY2pyM2kyeHc2MDg3bDQycDQ2dXpxemVlYiJ9.3LhNPoTaa4LqKctABvKKPQ';
+        var map2 = new mapboxgl.Map({
+            container: 'mapMapbox', // container id
+            style: 'mapbox://styles/mapbox/streets-v11', // stylesheet location
+            center: [4.907,52.372], // starting position [lng, lat]
+            zoom: 12 // starting zoom
+        });
+
+        var map3 = L.map('mapLeaflet').setView([52.372, 4.907], 12);
+        var layer = new L.TileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
+        map3.addLayer(layer);
+        
+        var map4;
+        require(["esri/map"], function(MapArc) {
+        map4 = new MapArc("mapArcGIS", {
+            basemap: "topo",
+            center: [4.907,52.372],
+            zoom: 12
+            });
+        });
+    </script>
+
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBRC9Yz7g0Ev2_-X7qP3PMOyhougSOs0h4&callback=initMap" async defer></script>
+  </body>
+</html>

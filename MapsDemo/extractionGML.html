@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Geo extraction</title>
+
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.53.1/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.53.1/mapbox-gl.css' rel='stylesheet' />
+
+    <script src="https://code.jquery.com/jquery-1.10.2.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.4.0/proj4.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/terraformer/1.0.9/terraformer.min.js"></script>
+    <script src="https://unpkg.com/terraformer-wkt-parser@1.1.2/terraformer-wkt-parser.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/1.3.8/FileSaver.js"></script>
+
+    <meta charset="utf-8">
+
+    <style>
+        #map { position:absolute; top:0; bottom:0; width:100%; }
+        body { margin:0; padding:0; }
+        .mapboxgl-popup {
+            max-width: 400px;
+            font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+        }
+    </style>
+  </head>
+  <body>
+    <div id='map'></div>
+    <script>
+        var colors = [
+"#63b598", "#ce7d78", "#ea9e70", "#a48a9e", "#c6e1e8", "#648177" ,"#0d5ac1" ,
+"#f205e6" ,"#1c0365" ,"#14a9ad" ,"#4ca2f9" ,"#a4e43f" ,"#d298e2" ,"#6119d0",
+"#d2737d" ,"#c0a43c" ,"#f2510e" ,"#651be6" ,"#79806e" ,"#61da5e" ,"#cd2f00" ,
+"#9348af" ,"#01ac53" ,"#c5a4fb" ,"#996635","#b11573" ,"#4bb473" ,"#75d89e" ,
+"#2f3f94" ,"#2f7b99" ,"#da967d" ,"#34891f" ,"#b0d87b" ,"#ca4751" ,"#7e50a8" ,
+"#c4d647" ,"#e0eeb8" ,"#11dec1" ,"#289812" ,"#566ca0" ,"#ffdbe1" ,"#2f1179" ,
+"#935b6d" ,"#916988" ,"#513d98" ,"#aead3a", "#9e6d71", "#4b5bdc", "#0cd36d",
+"#250662", "#cb5bea", "#228916", "#ac3e1b", "#df514a", "#539397", "#880977",
+"#f697c1", "#ba96ce", "#679c9d", "#c6c42c", "#5d2c52", "#48b41b", "#e1cf3b",
+"#5be4f0", "#57c4d8", "#a4d17a", "#225b8c", "#be608b", "#96b00c", "#088baf",
+"#f158bf", "#e145ba", "#ee91e3", "#05d371", "#5426e0", "#4834d0", "#802234",
+"#6749e8", "#0971f0", "#8fb413", "#b2b4f0", "#c3c89d", "#c9a941", "#41d158",
+"#fb21a3", "#51aed9", "#5bb32d", "#807fb", "#21538e", "#89d534", "#d36647",
+"#7fb411", "#0023b8", "#3b8c2a", "#986b53", "#f50422", "#983f7a", "#ea24a3",
+"#79352c", "#521250", "#c79ed2", "#d6dd92", "#e33e52", "#b2be57", "#fa06ec",
+"#1bb699", "#6b2e5f", "#64820f", "#1c271", "#21538e", "#89d534", "#d36647",
+"#7fb411", "#0023b8", "#3b8c2a", "#986b53", "#f50422", "#983f7a", "#ea24a3",
+"#79352c", "#521250", "#c79ed2", "#d6dd92", "#e33e52", "#b2be57", "#fa06ec",
+"#1bb699", "#6b2e5f", "#64820f", "#1c271", "#9cb64a", "#996c48", "#9ab9b7",
+"#06e052", "#e3a481", "#0eb621", "#fc458e", "#b2db15", "#aa226d", "#792ed8",
+"#73872a", "#520d3a", "#cefcb8", "#a5b3d9", "#7d1d85", "#c4fd57", "#f1ae16",
+"#8fe22a", "#ef6e3c", "#243eeb", "#1dc18", "#dd93fd", "#3f8473", "#e7dbce",
+"#421f79", "#7a3d93", "#635f6d", "#93f2d7", "#9b5c2a", "#15b9ee", "#0f5997",
+"#409188", "#911e20", "#1350ce", "#10e5b1", "#fff4d7", "#cb2582", "#ce00be",
+"#32d5d6", "#17232", "#608572", "#c79bc2", "#00f87c", "#77772a", "#6995ba",
+"#fc6b57", "#f07815", "#8fd883", "#060e27", "#96e591", "#21d52e", "#d00043",
+"#b47162", "#1ec227", "#4f0f6f", "#1d1d58", "#947002", "#bde052", "#e08c56",
+"#28fcfd", "#bb09b", "#36486a", "#d02e29", "#1ae6db", "#3e464c", "#a84a8f",
+"#911e7e", "#3f16d9", "#0f525f", "#ac7c0a", "#b4c086", "#c9d730", "#30cc49",
+"#3d6751", "#fb4c03", "#640fc1", "#62c03e", "#d3493a", "#88aa0b", "#406df9",
+"#615af0", "#4be47", "#2a3434", "#4a543f", "#79bca0", "#a8b8d4", "#00efd4",
+"#7ad236", "#7260d8", "#1deaa7", "#06f43a", "#823c59", "#e3d94c", "#dc1c06",
+"#f53b2a", "#b46238", "#2dfff6", "#a82b89", "#1a8011", "#436a9f", "#1a806a",
+"#4cf09d", "#c188a2", "#67eb4b", "#b308d3", "#fc7e41", "#af3101", "#ff065",
+"#71b1f4", "#a2f8a5", "#e23dd0", "#d3486d", "#00f7f9", "#474893", "#3cec35",
+"#1c65cb", "#5d1d0c", "#2d7d2a", "#ff3420", "#5cdd87", "#a259a4", "#e4ac44",
+"#1bede6", "#8798a4", "#d7790f", "#b2c24f", "#de73c2", "#d70a9c", "#25b67",
+"#88e9b8", "#c2b0e2", "#86e98f", "#ae90e2", "#1a806b", "#436a9e", "#0ec0ff",
+"#f812b3", "#b17fc9", "#8d6c2f", "#d3277a", "#2ca1ae", "#9685eb", "#8a96c6",
+"#dba2e6", "#76fc1b", "#608fa4", "#20f6ba", "#07d7f6", "#dce77a", "#77ecca"]
+
+        var pointsCollection = {
+            "type": "FeatureCollection",
+            "features": []
+        }
+
+        var linesCollection = {
+            "type": "FeatureCollection",
+            "features": []
+        }
+
+        var polygonsCollection = {
+            "type": "FeatureCollection",
+            "features": []
+        }
+
+        var turtles = "@prefix geo: <http://www.opengis.net/ont/geosparql#> .\n\n";
+
+        function appendRDFforObject(objectURI, wktLiteral, projection){
+            turtles += "<" + objectURI + "> geo:hasGeometry \[\n\t\ta geo:Geometry\;\n\t\tgeo:asWKT \"" + projection + " " + wktLiteral + "\"^^geo:wktLiteral \n] .\n\n";
+        }
+ 
+        function loadDoc(filePath) {
+            var xhttp = new XMLHttpRequest();
+            xhttp.open("GET", "http://localhost:8000/" + filePath, false);
+            xhttp.send();
+            return xhttp;
+        }
+     
+        function getLongLatFrom28992Projection(x, y){
+            proj4.defs("EPSG:28992","+proj=sterea +lat_0=52.15616055555555 +lon_0=5.38763888888889 +k=0.9999079 +x_0=155000 +y_0=463000 +ellps=bessel +towgs84=565.417,50.3319,465.552,-0.398957,0.343988,-1.8774,4.0725 +units=m +no_defs");
+            return proj4(proj4('EPSG:28992'),proj4('EPSG:4326')).forward([x,y]);
+        }
+
+        function getElementGeoJSONByGMLID(xmlDoc, gmlID){
+            var result = { 
+                "type": "Feature",
+                "properties": {"projection" : ""},
+                "geometry": {
+                    "type": "",
+                    "coordinates": [] }
+            }
+
+            //console.log(xmlDoc.getElementsByTagName("gml:Point"));
+            list = xmlDoc.getElementsByTagName("gml:Point");
+            for(var i = 0; i < list.length; i++){
+                if(list[i].attributes[0].value.startsWith(gmlID)){
+                    //console.log(list[i]);
+                    result.geometry.type = "Point";
+                    result.properties["gmlID"] = gmlID;
+                    var pos = list[i].getElementsByTagName("gml:pos")
+                    //console.log(pos[0].attributes.srsName.value);
+                    result.properties["projection"] = pos[0].attributes.srsName.value;
+                    coordinates = list[i].textContent.match(/(\d+\.?\d*)/g)
+                    //console.log(coordinates);
+                    if(coordinates.length > 1){
+                        //result.geometry.coordinates = getLongLatFrom28992Projection(coordinates[0], coordinates[1]);
+                        result.geometry.coordinates.push(coordinates[0]);
+                        result.geometry.coordinates.push(coordinates[1]);
+                        //console.log("POINT("+ result.geometry.coordinates[0] + " " + result.geometry.coordinates[1] + ")");
+                    }
+                    return result;              
+                }
+            }
+
+            //console.log(xmlDoc.getElementsByTagName("gml:LineString"));
+            list = xmlDoc.getElementsByTagName("gml:LineString");
+            for(var i = 0; i < list.length; i++){
+                if(list[i].attributes[0].value.startsWith(gmlID)){
+                    //console.log(list[i]);
+                    result.geometry.type = "LineString";
+                    result.properties["gmlID"] = gmlID;
+                    var poslist = list[i].getElementsByTagName("gml:posList")
+                    //console.log(poslist[0].attributes.srsName.value);
+                    result.properties["projection"] = poslist[0].attributes.srsName.value;
+                    if(poslist.length > 0){
+                        coordinates = poslist[0].textContent.match(/(\d+\.?\d*)/g)
+                        //console.log(coordinates);
+                        if(coordinates.length > 1){
+                            for(var x = 0; x < coordinates.length; x += parseInt(poslist[0].attributes.srsDimension.value)){
+                                //result.geometry.coordinates.push(getLongLatFrom28992Projection(coordinates[x], coordinates[x+1]));
+                                result.geometry.coordinates.push([coordinates[x],coordinates[x+1]]);
+                            }
+                        }
+                    }
+                    return result;
+                }
+            }
+
+            //console.log(xmlDoc.getElementsByTagName("gml:Polygon"));
+            var list = xmlDoc.getElementsByTagName("gml:Polygon");
+            for(var i = 0; i < list.length; i++){
+                if(list[i].attributes[0].value.startsWith(gmlID)){
+                    //console.log(list[i]);
+                    result.geometry.type = "Polygon";
+                    result.properties["gmlID"] = gmlID;
+
+                    var poslist = list[i].getElementsByTagName("gml:posList")
+                    //console.log(poslist[0].attributes.srsName.value);
+                    result.properties["projection"] = poslist[0].attributes.srsName.value;
+                    if(poslist.length > 0){
+                        for(var k=0; k < poslist.length; k++){
+                            coordinates = poslist[k].textContent.match(/(\d+\.?\d*)/g)
+                            //console.log(coordinates);
+                            if(coordinates.length > 1){
+                                var polygonCoordinates = [];
+                                for(var x = 0; x < coordinates.length; x += parseInt(poslist[0].attributes.srsDimension.value)){
+                                    //polygonCoordinates.push(getLongLatFrom28992Projection(coordinates[x], coordinates[x+1]));
+                                    polygonCoordinates.push([coordinates[x],coordinates[x+1]]);
+                                }
+                                result.geometry.coordinates.push(polygonCoordinates);
+                            }
+                        }  
+                    }
+                    return result;
+                }
+            }
+
+            //console.log(xmlDoc);
+            //console.log(gmlID);
+            return result;
+        }
+
+
+        class SPARQLQueryDispatcher {
+            constructor( endpoint ) {
+                //this.endpoint = endpoint;
+                this.endpoint = "http://localhost:3030/data/sparql";
+            }
+
+            query( sparqlQuery ) {
+                const fullUrl = this.endpoint + '?query=' + encodeURIComponent( sparqlQuery );
+                const headers = { 'Accept': 'application/sparql-results+json' };
+
+                return fetch( fullUrl, { headers } ).then( body => body.json() );
+            }
+        }
+
+        const endpointUrl = 'https://query.wikidata.org/sparql';
+        const sparqlQuery = `
+        PREFIX rws: <http://otl.rws.nl/otl#>
+        PREFIX owl: <http://www.w3.org/2002/07/owl#>
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+        PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+        PREFIX cbim: <http://www.coinsweb.nl/cbim-2.0.rdf#>
+        PREFIX cb: <http://cbasewrap.ontologycentral.com/vocab#>
+        PREFIX geo: <http://www.opengis.net/ont/geosparql#>
+
+
+        SELECT ?object ?name ?filePath ?documentFragment
+        WHERE {
+        # ?object geo:hasGeometry/geo:asWKT ?shape .
+        # ?object rdf:type rws:OB02859 .
+
+        ?object (cbim:hasProperties|^cbim:propertyBelongsTo) ?shapeProperty .
+        ?shapeProperty a cbim:ShapeRepresentationProperty .
+        ?shapeProperty cbim:objectValue ?documentProperty .
+        ?documentProperty cbim:filePath/cbim:datatypeValue ?filePath .
+        FILTER (CONTAINS(?filePath, "gml")) .
+        ?documentProperty cbim:documentFragment/cbim:datatypeValue ?documentFragment .
+
+        # OPTIONAL {?object cbim:name ?name} .
+        # filter contains(?name,"toplaag") .
+        } LIMIT 10000`;
+
+        const queryDispatcher = new SPARQLQueryDispatcher( endpointUrl );
+        queryDispatcher.query( sparqlQuery ).then( function(value) {         
+            value.results.bindings.forEach(function(element) {
+                //console.log(getElementGeoJSONByGMLID($.parseXML(loadDoc(element.filePath.value).responseText), element.documentFragment.value.replace("#", "")));
+                var geoJSON = getElementGeoJSONByGMLID($.parseXML(loadDoc(element.filePath.value).responseText), element.documentFragment.value.replace("#", ""));
+                //geoJSON.properties["name"] = element.name.value;
+
+                if(geoJSON.geometry.type){
+                    if(!geoJSON.properties["projection"]){
+                        console.log("empty")
+                    }
+                    var turtle = appendRDFforObject(element.object.value, Terraformer.WKT.convert(geoJSON.geometry), "<"+ geoJSON.properties["projection"] +">");
+                    if(geoJSON.geometry.type == "Point"){
+                        
+                        pointsCollection.features.push(geoJSON);
+                    }
+
+                    if(geoJSON.geometry.type == "LineString"){
+                        linesCollection.features.push(geoJSON);
+                    }
+
+                    if(geoJSON.geometry.type == "Polygon"){
+                        geoJSON.properties["color"] = colors[polygonsCollection.features.length];
+                        polygonsCollection.features.push(geoJSON);
+                    }
+                }
+            });
+
+            console.log(pointsCollection);
+            console.log(linesCollection);
+            console.log(polygonsCollection);
+
+            //console.log(turtles);
+            var blob = new Blob([turtles], {type: "text/plain;charset=utf-8"});
+            saveAs(blob, "geometries.ttl");
+            
+            /*
+            mapboxgl.accessToken = 'pk.eyJ1IjoidmlrdG9yc29saWsiLCJhIjoiY2pyM2kyeHc2MDg3bDQycDQ2dXpxemVlYiJ9.3LhNPoTaa4LqKctABvKKPQ';
+            var map = new mapboxgl.Map({
+                container: 'map', // container id
+                style: 'mapbox://styles/mapbox/light-v9', // stylesheet location
+                center: [3.647,51.481], // starting position [lng, lat]
+                zoom: 12 // starting zoom
+            });
+            
+            
+            map.on('load', function() {
+                map.addSource("pointsDataset", {
+                    type: "geojson",
+                    data: pointsCollection
+                });
+
+                map.addSource("linesDataset", {
+                    type: "geojson",
+                    data: linesCollection
+                });
+
+                map.addSource("polygonsDataset", {
+                    type: "geojson",
+                    data: polygonsCollection
+                });
+
+                map.addLayer({
+                    "id": "polygonFill",
+                    "type": "fill",
+                    "source": "polygonsDataset",
+                    "paint": {
+                        "fill-opacity": 1,
+                        "fill-color" : ['get', 'color']
+                    }
+                });
+
+                map.addLayer({
+                    "id": "polygonLabel",
+                    "type": "symbol",
+                    "source": "polygonsDataset",
+                    "layout": {
+                        "symbol-placement": "line",
+                        "text-allow-overlap": true,
+                        "text-field": ["get", "name"],
+                        "text-size": 10,
+                        "text-offset" : [0,1.5],
+                        "text-anchor": "top"
+                    }
+                });
+
+
+                map.addLayer({
+                    "id": "lineLine",
+                    "type": "line",
+                    "source": "linesDataset",
+                    "layout": {
+                        "line-join": "round",
+                        "line-cap": "round"
+                    },
+                    "paint": {
+                        "line-width": 10
+                    }
+                });
+
+                map.addLayer({
+                    "id": "lineLabel",
+                    "type": "symbol",
+                    "source": "linesDataset",
+                    "layout": {
+                        "symbol-placement": "line",
+                        "text-allow-overlap": true,
+                        "text-field": ["get", "gmlID"],
+                        "text-size": 10,
+                        "text-offset" : [0,1.5],
+                        "text-anchor": "top"
+                    }
+                });
+
+                    
+                map.addLayer({
+                    "id": "pointCircle",
+                    "type": "circle",
+                    "source": "pointsDataset",
+                    "paint": {
+                    "circle-radius": 5
+                    }
+                });
+
+                map.addLayer({
+                    "id": "pointLabel",
+                    "type": "symbol",
+                    "source": "pointsDataset",
+                    "layout": {
+                        "text-allow-overlap": true,
+                        "text-field": ["get", "gmlID"],
+                        "text-size": 10,
+                        "text-offset" : [0,1.0],
+                        "text-anchor": "top"
+                    }
+                });
+            });
+            */
+            
+        });
+    </script>
+  </body>
+</html>
