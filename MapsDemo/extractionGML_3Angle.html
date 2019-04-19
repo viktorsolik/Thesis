@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Geo extraction</title>
+
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.53.1/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.53.1/mapbox-gl.css' rel='stylesheet' />
+
+    <script src="https://code.jquery.com/jquery-1.10.2.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.4.0/proj4.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/terraformer/1.0.9/terraformer.min.js"></script>
+    <script src="https://unpkg.com/terraformer-wkt-parser@1.1.2/terraformer-wkt-parser.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/1.3.8/FileSaver.js"></script>
+
+    <meta charset="utf-8">
+
+    <style>
+        #map { position:absolute; top:0; bottom:0; width:100%; }
+        body { margin:0; padding:0; }
+        .mapboxgl-popup {
+            max-width: 400px;
+            font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+        }
+    </style>
+  </head>
+  <body>
+    <div id='map'></div>
+    <script>
+        var pointsCollection = {
+            "type": "FeatureCollection",
+            "features": []
+        }
+
+        var linesCollection = {
+            "type": "FeatureCollection",
+            "features": []
+        }
+
+        var polygonsCollection = {
+            "type": "FeatureCollection",
+            "features": []
+        }
+
+        var turtles = "@prefix geo: <http://www.opengis.net/ont/geosparql#> .\n\n";
+
+        function appendRDFforObject(objectURI, wktLiteral, projection){
+            turtles += "<" + objectURI + "> geo:hasGeometry \[\n\t\ta geo:Geometry\;\n\t\tgeo:asWKT \"" + projection + " " + wktLiteral + "\"^^geo:wktLiteral \n] .\n\n";
+        }
+ 
+        function loadDoc(filePath) {
+            var xhttp = new XMLHttpRequest();
+            xhttp.open("GET", "http://localhost:8000/" + filePath, false);
+            xhttp.send();
+            return xhttp;
+        }
+     
+        function getLongLatFrom28992Projection(x, y){
+            proj4.defs("EPSG:28992","+proj=sterea +lat_0=52.15616055555555 +lon_0=5.38763888888889 +k=0.9999079 +x_0=155000 +y_0=463000 +ellps=bessel +towgs84=565.417,50.3319,465.552,-0.398957,0.343988,-1.8774,4.0725 +units=m +no_defs");
+            return proj4(proj4('EPSG:28992'),proj4('EPSG:4326')).forward([x,y]);
+        }
+
+        function getElementGeoJSONByGMLID(xmlDoc, gmlID){
+            var result = { 
+                "type": "Feature",
+                "properties": {"projection" : ""},
+                "geometry": {
+                    "type": "",
+                    "coordinates": [] }
+            }
+
+            //console.log(xmlDoc.getElementsByTagName("gml:Point"));
+            list = xmlDoc.getElementsByTagName("gml:Point");
+            for(var i = 0; i < list.length; i++){
+                if(list[i].attributes[0].value.startsWith(gmlID)){
+                    //console.log(list[i]);
+                    result.geometry.type = "Point";
+                    result.properties["gmlID"] = gmlID;
+                    var pos = list[i].getElementsByTagName("gml:pos")
+                    //console.log(pos[0].attributes.srsName.value);
+                    result.properties["projection"] = pos[0].attributes.srsName.value;
+                    coordinates = list[i].textContent.match(/(\d+\.?\d*)/g)
+                    //console.log(coordinates);
+                    if(coordinates.length > 1){
+                        //result.geometry.coordinates = getLongLatFrom28992Projection(coordinates[0], coordinates[1]);
+                        result.geometry.coordinates.push(coordinates[0]);
+                        result.geometry.coordinates.push(coordinates[1]);
+                        //console.log("POINT("+ result.geometry.coordinates[0] + " " + result.geometry.coordinates[1] + ")");
+                    }
+                    return result;              
+                }
+            }
+
+            //console.log(xmlDoc.getElementsByTagName("gml:LineString"));
+            list = xmlDoc.getElementsByTagName("gml:LineString");
+            for(var i = 0; i < list.length; i++){
+                if(list[i].attributes[0].value.startsWith(gmlID)){
+                    //console.log(list[i]);
+                    result.geometry.type = "LineString";
+                    result.properties["gmlID"] = gmlID;
+                    var poslist = list[i].getElementsByTagName("gml:posList")
+                    //console.log(poslist[0].attributes.srsName.value);
+                    result.properties["projection"] = poslist[0].attributes.srsName.value;
+                    if(poslist.length > 0){
+                        coordinates = poslist[0].textContent.match(/(\d+\.?\d*)/g)
+                        //console.log(coordinates);
+                        if(coordinates.length > 1){
+                            for(var x = 0; x < coordinates.length; x += parseInt(poslist[0].attributes.srsDimension.value)){
+                                //result.geometry.coordinates.push(getLongLatFrom28992Projection(coordinates[x], coordinates[x+1]));
+                                result.geometry.coordinates.push([coordinates[x],coordinates[x+1]]);
+                            }
+                        }
+                    }
+                    return result;
+                }
+            }
+
+            //console.log(xmlDoc.getElementsByTagName("gml:Polygon"));
+            var list = xmlDoc.getElementsByTagName("gml:Polygon");
+            for(var i = 0; i < list.length; i++){
+                if(list[i].attributes[0].value.startsWith(gmlID)){
+                    //console.log(list[i]);
+                    result.geometry.type = "Polygon";
+                    result.properties["gmlID"] = gmlID;
+
+                    var poslist = list[i].getElementsByTagName("gml:posList")
+                    //console.log(poslist[0].attributes.srsName.value);
+                    result.properties["projection"] = poslist[0].attributes.srsName.value;
+                    if(poslist.length > 0){
+                        for(var k=0; k < poslist.length; k++){
+                            coordinates = poslist[k].textContent.match(/(\d+\.?\d*)/g)
+                            //console.log(coordinates);
+                            if(coordinates.length > 1){
+                                var polygonCoordinates = [];
+                                for(var x = 0; x < coordinates.length; x += parseInt(poslist[0].attributes.srsDimension.value)){
+                                    //polygonCoordinates.push(getLongLatFrom28992Projection(coordinates[x], coordinates[x+1]));
+                                    polygonCoordinates.push([coordinates[x],coordinates[x+1]]);
+                                }
+                                result.geometry.coordinates.push(polygonCoordinates);
+                            }
+                        }  
+                    }
+                    return result;
+                }
+            }
+
+            //console.log(xmlDoc);
+            //console.log(gmlID);
+            return result;
+        }
+
+
+        class SPARQLQueryDispatcher {
+            constructor( endpoint ) {
+                //this.endpoint = endpoint;
+                this.endpoint = "http://localhost:3030/data/sparql";
+            }
+
+            query( sparqlQuery ) {
+                const fullUrl = this.endpoint + '?query=' + encodeURIComponent( sparqlQuery );
+                const headers = { 'Accept': 'application/sparql-results+json' };
+
+                return fetch( fullUrl, { headers } ).then( body => body.json() );
+            }
+        }
+
+        const endpointUrl = 'https://query.wikidata.org/sparql';
+        const sparqlQuery = `
+        PREFIX rws: <http://otl.rws.nl/otl#>
+        PREFIX owl: <http://www.w3.org/2002/07/owl#>
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+        PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+        PREFIX cbim: <http://www.coinsweb.nl/cbim-2.0.rdf#>
+        PREFIX cb: <http://cbasewrap.ontologycentral.com/vocab#>
+        PREFIX geo: <http://www.opengis.net/ont/geosparql#>
+
+
+        SELECT ?object ?name ?filePath ?documentFragment
+        WHERE {
+        # ?object geo:hasGeometry/geo:asWKT ?shape .
+        # ?object rdf:type rws:OB02859 .
+
+        ?object (cbim:hasProperties|^cbim:propertyBelongsTo) ?shapeProperty .
+        ?shapeProperty a cbim:ShapeRepresentationProperty .
+        ?shapeProperty cbim:objectValue ?documentProperty .
+        ?documentProperty cbim:filePath/cbim:datatypeValue ?filePath .
+        FILTER (CONTAINS(?filePath, "gml")) .
+        ?documentProperty cbim:documentFragment/cbim:datatypeValue ?documentFragment .
+
+        # OPTIONAL {?object cbim:name ?name} .
+        # filter contains(?name,"toplaag") .
+        } LIMIT 10000`;
+
+        const queryDispatcher = new SPARQLQueryDispatcher( endpointUrl );
+        queryDispatcher.query( sparqlQuery ).then( function(value) {         
+            value.results.bindings.forEach(function(element) {
+                //console.log(getElementGeoJSONByGMLID($.parseXML(loadDoc(element.filePath.value).responseText), element.documentFragment.value.replace("#", "")));
+                var geoJSON = getElementGeoJSONByGMLID($.parseXML(loadDoc(element.filePath.value).responseText), element.documentFragment.value.replace("#", ""));
+                //geoJSON.properties["name"] = element.name.value;
+
+                if(geoJSON.geometry.type){
+                    if(!geoJSON.properties["projection"]){
+                        console.log("empty")
+                    }
+                    var turtle = appendRDFforObject(element.object.value, Terraformer.WKT.convert(geoJSON.geometry), "<"+ geoJSON.properties["projection"] +">");
+                    if(geoJSON.geometry.type == "Point"){
+                        
+                        pointsCollection.features.push(geoJSON);
+                    }
+
+                    if(geoJSON.geometry.type == "LineString"){
+                        linesCollection.features.push(geoJSON);
+                    }
+
+                    if(geoJSON.geometry.type == "Polygon"){
+                        polygonsCollection.features.push(geoJSON);
+                    }
+                }
+            });
+
+            console.log(pointsCollection);
+            console.log(linesCollection);
+            console.log(polygonsCollection);
+
+            //console.log(turtles);
+            var blob = new Blob([turtles], {type: "text/plain;charset=utf-8"});
+            saveAs(blob, "geometries.ttl");
+            
+            /*
+            mapboxgl.accessToken = 'pk.eyJ1IjoidmlrdG9yc29saWsiLCJhIjoiY2pyM2kyeHc2MDg3bDQycDQ2dXpxemVlYiJ9.3LhNPoTaa4LqKctABvKKPQ';
+            var map = new mapboxgl.Map({
+                container: 'map', // container id
+                style: 'mapbox://styles/mapbox/light-v9', // stylesheet location
+                center: [3.647,51.481], // starting position [lng, lat]
+                zoom: 12 // starting zoom
+            });
+            
+            
+            map.on('load', function() {
+                map.addSource("pointsDataset", {
+                    type: "geojson",
+                    data: pointsCollection
+                });
+
+                map.addSource("linesDataset", {
+                    type: "geojson",
+                    data: linesCollection
+                });
+
+                map.addSource("polygonsDataset", {
+                    type: "geojson",
+                    data: polygonsCollection
+                });
+
+                map.addLayer({
+                    "id": "polygonFill",
+                    "type": "fill",
+                    "source": "polygonsDataset",
+                    "paint": {
+                        "fill-opacity": 1,
+                        "fill-color" : ['get', 'color']
+                    }
+                });
+
+                map.addLayer({
+                    "id": "polygonLabel",
+                    "type": "symbol",
+                    "source": "polygonsDataset",
+                    "layout": {
+                        "symbol-placement": "line",
+                        "text-allow-overlap": true,
+                        "text-field": ["get", "name"],
+                        "text-size": 10,
+                        "text-offset" : [0,1.5],
+                        "text-anchor": "top"
+                    }
+                });
+
+
+                map.addLayer({
+                    "id": "lineLine",
+                    "type": "line",
+                    "source": "linesDataset",
+                    "layout": {
+                        "line-join": "round",
+                        "line-cap": "round"
+                    },
+                    "paint": {
+                        "line-width": 10
+                    }
+                });
+
+                map.addLayer({
+                    "id": "lineLabel",
+                    "type": "symbol",
+                    "source": "linesDataset",
+                    "layout": {
+                        "symbol-placement": "line",
+                        "text-allow-overlap": true,
+                        "text-field": ["get", "gmlID"],
+                        "text-size": 10,
+                        "text-offset" : [0,1.5],
+                        "text-anchor": "top"
+                    }
+                });
+
+                    
+                map.addLayer({
+                    "id": "pointCircle",
+                    "type": "circle",
+                    "source": "pointsDataset",
+                    "paint": {
+                    "circle-radius": 5
+                    }
+                });
+
+                map.addLayer({
+                    "id": "pointLabel",
+                    "type": "symbol",
+                    "source": "pointsDataset",
+                    "layout": {
+                        "text-allow-overlap": true,
+                        "text-field": ["get", "gmlID"],
+                        "text-size": 10,
+                        "text-offset" : [0,1.0],
+                        "text-anchor": "top"
+                    }
+                });
+            });
+            */
+            
+        });
+    </script>
+  </body>
+</html>
