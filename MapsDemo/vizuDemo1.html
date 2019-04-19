@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Geo extraction</title>
+
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.53.1/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.53.1/mapbox-gl.css' rel='stylesheet' />
+
+    <script src="https://code.jquery.com/jquery-1.10.2.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.4.0/proj4.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/terraformer/1.0.9/terraformer.min.js"></script>
+    <script src="https://unpkg.com/terraformer-wkt-parser@1.1.2/terraformer-wkt-parser.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/1.3.8/FileSaver.js"></script>
+
+    <meta charset="utf-8">
+
+    <style>
+        #map { position:absolute; top:0; bottom:0; width:100%; }
+        body { margin:0; padding:0; }
+        .mapboxgl-popup {
+            max-width: 350px;
+            font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+        }
+        img {
+            max-width: 250px;
+            max-height: 150px;
+        }
+    </style>
+  </head>
+  <body>
+    <div id='map'></div>
+    <script>
+        proj4.defs("EPSG:28992","+proj=sterea +lat_0=52.15616055555555 +lon_0=5.38763888888889 +k=0.9999079 +x_0=155000 +y_0=463000 +ellps=bessel +towgs84=565.417,50.3319,465.552,-0.398957,0.343988,-1.8774,4.0725 +units=m +no_defs");
+        
+        var pointsCollection = {
+            "type": "FeatureCollection",
+            "features": []
+        }
+
+        var linesCollection = {
+            "type": "FeatureCollection",
+            "features": []
+        }
+
+        var polygonsCollection = {
+            "type": "FeatureCollection",
+            "features": []
+        }
+        var icons = [];
+         
+        function getLongLatFrom28992Projection(x, y){
+            return proj4(proj4('EPSG:28992'),proj4('EPSG:4326')).forward([x,y]);
+        }
+
+        class SPARQLQueryDispatcher {
+            constructor( endpoint ) {
+                //this.endpoint = endpoint;
+                this.endpoint = "http://localhost:3030/data/sparql";
+            }
+
+            query( sparqlQuery ) {
+                const fullUrl = this.endpoint + '?query=' + encodeURIComponent( sparqlQuery );
+                const headers = { 'Accept': 'application/sparql-results+json' };
+
+                return fetch( fullUrl, { headers } ).then( body => body.json() );
+            }
+        }
+
+        const endpointUrl = 'https://query.wikidata.org/sparql';
+        const sparqlQuery = `
+        PREFIX rws: <http://otl.rws.nl/otl#>
+        PREFIX owl: <http://www.w3.org/2002/07/owl#>
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+        PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+        PREFIX cbim: <http://www.coinsweb.nl/cbim-2.0.rdf#>
+        PREFIX cb: <http://cbasewrap.ontologycentral.com/vocab#>
+        PREFIX geo: <http://www.opengis.net/ont/geosparql#>
+        PREFIX coins2: <http://www.rws.nl/coins2/RefKader#>
+
+
+        SELECT ?object ?shape ?label ?hue ?lightness ?icon ?image (group_concat(?param;separator=",") as ?params) (group_concat(?paramLabel;separator=",") as ?paramLabels)
+        WHERE {
+            ?object geo:hasGeometry/geo:asWKT ?shape .
+            
+            ?sign rdfs:subClassOf rws:OB01223.
+            ?object a ?sign.
+            
+            OPTIONAL {?object coins2:hasLifeCycleState ?state} .
+            OPTIONAL {?object cbim:name ?label} .
+            OPTIONAL {?sign <http://otl.rws.nl/mc-mi-types#mit0033> ?image }.
+            
+            #bind(if(?state= <http://www.buildingbits.nl/VCON/AsIs.rdf#_BB753node1afjshakux81974>, "215", "null") as ?hue)
+            
+            bind("https://cdn1.iconfinder.com/data/icons/mixed-bag/32/direction-sign-512.png" as ?icon)
+
+            {
+                OPTIONAL { 
+                    ?object cbim:description ?param
+                    BIND("Description" AS ?paramLabel )
+                }.
+            }
+            UNION
+            {
+                OPTIONAL { 
+                    ?object coins2:hasLifeCycleState/cbim:description ?param
+                    BIND("Life-cycle state" AS ?paramLabel )
+                }.
+            }
+        }
+        group by ?object ?shape ?label ?hue ?lightness ?icon ?image`;
+
+        const sparqlQuery2 =`
+        PREFIX rws: <http://otl.rws.nl/otl#>
+        PREFIX owl: <http://www.w3.org/2002/07/owl#>
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+        PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+        PREFIX cbim: <http://www.coinsweb.nl/cbim-2.0.rdf#>
+        PREFIX cb: <http://cbasewrap.ontologycentral.com/vocab#>
+        PREFIX geo: <http://www.opengis.net/ont/geosparql#>
+        PREFIX coins2: <http://www.rws.nl/coins2/RefKader#>
+
+        SELECT ?object ?shape ?label ?hue ?lightness ?icon ?image (group_concat(?param;separator=",") as ?params) (group_concat(?paramLabel;separator=",") as ?paramLabels)
+        WHERE {
+            {
+                ?object geo:hasGeometry/geo:asWKT ?shape .
+            
+                ?tree rdfs:subClassOf rws:OB01004.
+                ?object a ?tree.
+
+                OPTIONAL {?object cbim:name ?label} .
+                bind("https://cdn3.iconfinder.com/data/icons/eco-flat-2/512/Nature_plant_tree-512.png" as ?icon)
+                BIND("115" as ?hue)
+            }
+            UNION
+            {
+                ?object geo:hasGeometry/geo:asWKT ?shape .
+
+                ?sign rdfs:subClassOf rws:OB01223.
+                ?object a ?sign.
+
+                OPTIONAL {?object coins2:hasLifeCycleState ?state} .
+                OPTIONAL {?object cbim:name ?label} .
+                OPTIONAL {?sign <http://otl.rws.nl/mc-mi-types#mit0033> ?image }.
+
+                #bind(if(?state= <http://www.buildingbits.nl/VCON/AsIs.rdf#_BB753node1afjshakux81974>, "215", "null") as ?hue)
+
+                bind("https://cdn1.iconfinder.com/data/icons/mixed-bag/32/direction-sign-512.png" as ?icon)
+
+                BIND("218" as ?hue)
+
+                {
+                    OPTIONAL { 
+                    ?object cbim:description ?param
+                    BIND("Description" AS ?paramLabel )
+                    }.
+                }
+                UNION
+                {
+                    OPTIONAL { 
+                    ?object coins2:hasLifeCycleState/cbim:description ?param
+                    BIND("Life-cycle state" AS ?paramLabel )
+                    }.
+                }
+            }
+            UNION
+            {
+                ?object geo:hasGeometry/geo:asWKT ?shape .
+
+                ?camera rdfs:subClassOf rws:OB00968.
+                ?object a ?camera.
+
+                OPTIONAL {?object cbim:name ?label} .
+                OPTIONAL {?camera <http://otl.rws.nl/mc-mi-types#mit0033> ?image }.
+                BIND("https://cdn4.iconfinder.com/data/icons/ionicons/512/icon-camera-512.png" as ?icon)
+                BIND("33" as ?hue)
+            }
+            UNION
+            {
+                ?object geo:hasGeometry/geo:asWKT ?shape .
+
+                ?light rdfs:subClassOf rws:OB00011.
+                ?object a ?light.
+
+                OPTIONAL {?object cbim:name ?label} .
+                OPTIONAL {?light <http://otl.rws.nl/mc-mi-types#mit0033> ?image }.
+                BIND("https://cdn3.iconfinder.com/data/icons/meanicons-4/512/meanicons_11-512.png" as ?icon)
+                BIND("0" as ?hue)
+            }
+        }
+        group by ?object ?shape ?label ?hue ?lightness ?icon ?image`;
+
+
+        const queryDispatcher = new SPARQLQueryDispatcher( endpointUrl );
+        queryDispatcher.query( sparqlQuery2 ).then( function(value) {         
+            value.results.bindings.forEach(function(element) {
+                const RE_WKT = /\<(?<projection>.*)\> (?<wkt>.*)/g;
+                var wktLiteralMatches = RE_WKT.exec(element.shape.value);
+
+                //console.log(wktLiteralMatches.groups.projection);
+                //console.log(wktLiteralMatches.groups.wkt);
+                
+                var geoJSON = { 
+                    "type": "Feature",
+                    "properties": {},
+                    "geometry": {}
+                }
+                geoJSON.geometry = Terraformer.WKT.parse(wktLiteralMatches.groups.wkt);
+                geoJSON.properties["projection"] = "EPSG:" + wktLiteralMatches.groups.projection.match(/([0-9]{4,})/g);
+
+                if(element.label && element.label.value){
+                    geoJSON.properties["label"] = element.label.value;
+                }
+                else{
+                    geoJSON.properties["label"] = "";
+                }
+                
+
+                var hue,lig,sat = "0";
+                if(element.hue && (element.hue.value != "null")){
+                    hue = element.hue.value;
+                    sat = "100";
+                }
+
+                if(element.lightness && (element.lightness.value != "null")){
+                    lig = element.lightness.value;
+                }
+                else{
+                    lig = "50";
+                }
+
+                geoJSON.properties["color"] = "hsl("+ hue + "," + sat + "%," + lig + "%)";
+                
+                if(element.icon && element.icon.value){
+                    geoJSON.properties["icon"] = element.icon.value;
+
+                    if(!icons.includes(element.icon.value)){
+                        icons.push(element.icon.value);
+                    }
+                }
+                //TODO add else statement
+
+                if(element.params && element.params.value){
+                    geoJSON.properties["params"] = element.params.value;
+                }
+                else{
+                    geoJSON.properties["params"] = "";
+                }
+
+                if(element.paramLabels && element.paramLabels.value){
+                    geoJSON.properties["paramLabels"] = element.paramLabels.value;
+                }
+                else{
+                    geoJSON.properties["paramLabels"] = "";
+                }
+
+
+                if(element.image && element.image.value){
+                    geoJSON.properties["image"] = element.image.value;
+                }
+                else{
+                    geoJSON.properties["image"] = "";
+                }
+
+                if(geoJSON.geometry.type){
+                    if(geoJSON.geometry.type == "Point"){
+                        geoJSON.geometry.coordinates = proj4(proj4(geoJSON.properties["projection"]),proj4('EPSG:4326')).forward([geoJSON.geometry.coordinates[0], geoJSON.geometry.coordinates[1]]);
+                        pointsCollection.features.push(geoJSON);
+                    }
+
+                    if(geoJSON.geometry.type == "LineString"){
+                        for(var x = 0; x < geoJSON.geometry.coordinates.length; x++)
+                        {
+                            geoJSON.geometry.coordinates[x] = proj4(proj4(geoJSON.properties["projection"]),proj4('EPSG:4326')).forward([geoJSON.geometry.coordinates[x][0], geoJSON.geometry.coordinates[x][1]]);
+                        }
+                        linesCollection.features.push(geoJSON); 
+                    }
+
+                    if(geoJSON.geometry.type == "Polygon"){
+                        for(var x = 0; x < geoJSON.geometry.coordinates.length; x++)
+                        {
+                            for(var y = 0; y < geoJSON.geometry.coordinates[x].length; y++)
+                            {
+                                geoJSON.geometry.coordinates[x][y] = proj4(proj4(geoJSON.properties["projection"]),proj4('EPSG:4326')).forward([geoJSON.geometry.coordinates[x][y][0], geoJSON.geometry.coordinates[x][y][1]]);
+                            }
+                        }
+                        polygonsCollection.features.push(geoJSON);
+                    }
+                }
+
+                //console.log(geoJSON);
+                
+            });
+
+            console.log(pointsCollection);
+            console.log(linesCollection);
+            console.log(polygonsCollection);
+
+            
+            mapboxgl.accessToken = 'pk.eyJ1IjoidmlrdG9yc29saWsiLCJhIjoiY2pyM2kyeHc2MDg3bDQycDQ2dXpxemVlYiJ9.3LhNPoTaa4LqKctABvKKPQ';
+            var map = new mapboxgl.Map({
+                container: 'map', // container id
+                style: 'mapbox://styles/mapbox/light-v9', // stylesheet location
+                center: [3.647,51.481], // starting position [lng, lat]
+                zoom: 12 // starting zoom
+            });
+            
+            
+            map.on('load', function() {
+                console.log(icons);
+                icons.forEach(function(icon) {
+                    map.loadImage(icon, function(error, image) {
+                        if (error) throw error;
+                        map.addImage(icon, image, {"sdf": "true"});
+                    });
+                });
+                
+
+                map.addSource("pointsDataset", {
+                    type: "geojson",
+                    data: pointsCollection,
+                    cluster: true
+                });
+
+                map.addSource("linesDataset", {
+                    type: "geojson",
+                    data: linesCollection
+                });
+
+                map.addSource("polygonsDataset", {
+                    type: "geojson",
+                    data: polygonsCollection
+                });
+
+                map.addLayer({
+                    "id": "polygonFill",
+                    "type": "fill",
+                    "source": "polygonsDataset",
+                    "paint": {
+                        "fill-opacity": 1,
+                        "fill-color" : ['get', 'color']
+                    }
+                });
+
+                map.addLayer({
+                    "id": "polygonLabel",
+                    "type": "symbol",
+                    "source": "polygonsDataset",
+                    "layout": {
+                        "symbol-placement": "line",
+                        "text-allow-overlap": true,
+                        "text-field": ["get", "label"],
+                        "text-size": 10,
+                        "text-offset" : [0,2],
+                        "text-anchor": "top"
+                    }
+                });
+
+                map.addLayer({
+                    "id": "lineLine",
+                    "type": "line",
+                    "source": "linesDataset",
+                    "layout": {
+                        "line-join": "round",
+                        "line-cap": "round"
+                    },
+                    "paint": {
+                        "line-width": 10,
+                        "line-color": ['get', 'color']
+                    }
+                });
+
+                map.addLayer({
+                    "id": "lineLabel",
+                    "type": "symbol",
+                    "source": "linesDataset",
+                    "layout": {
+                        "symbol-placement": "line",
+                        "text-allow-overlap": true,
+                        "text-field": ["get", "label"],
+                        "text-size": 10,
+                        "text-offset" : [0,2],
+                        "text-anchor": "top"
+                    }
+                });
+
+                
+                map.addLayer({
+                    "id": "pointCluster",
+                    "type": "circle",
+                    "source": "pointsDataset",
+                    "filter": ["has", "point_count"],
+                    "paint": {
+                        "circle-radius": 35,
+                        "circle-opacity" : 0.6
+                    }
+                });
+
+                map.addLayer({
+                    "id": "pointClusterLabel",
+                    "type": "symbol",
+                    "source": "pointsDataset",
+                    "filter": ["has", "point_count"],
+                    "layout": {
+                        "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
+                        "text-field": ["get", "point_count"],
+                        "text-size": 25,
+                    },
+                    "paint":{
+                        "text-color": "#FFF"
+                    }
+                });
+
+                //TODO Filter out those without icons and create circle layer for them
+                map.addLayer({
+                    id: "pointIcon",
+                    type: "symbol",
+                    source: "pointsDataset",
+                    filter: ["!", ["has", "point_count"]],
+                    layout: {
+                        "icon-allow-overlap": true,
+                        "icon-image": ['get', 'icon'],
+                        "icon-size": 0.08,
+                    },
+                    paint :{
+                        "icon-color": ['get', 'color']
+                    }
+                });
+
+
+                map.addLayer({
+                    "id": "pointLabel",
+                    "type": "symbol",
+                    "source": "pointsDataset",
+                    "layout": {
+                        "text-allow-overlap": false,
+                        "text-field": ["get", "label"],
+                        "text-size": 10,
+                        "text-offset" : [0,1.3],
+                        "text-anchor": "top"
+                    }
+                });
+
+                map.on('click', 'pointCluster', function (e) {
+                    var features = map.queryRenderedFeatures(e.point, { layers: ['pointCluster'] });
+                    var clusterId = features[0].properties.cluster_id;
+                    map.getSource('pointsDataset').getClusterExpansionZoom(clusterId, function (err, zoom) {
+                        if (err)
+                        return;
+                    
+                        map.easeTo({
+                            center: features[0].geometry.coordinates,
+                            zoom: zoom
+                        });
+                    });
+                });
+
+                ///POINT POPUP HANDLING
+                map.on('click', "pointIcon", function(e) {
+                    var coordinates = e.features[0].geometry.coordinates;
+
+                    while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+                        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+                    }
+
+                    var popup = document.createElement("div");
+                    //popup.setAttribute("id", "pointPopup");
+
+                    let htmlElement = document.createElement("p");
+                        htmlElement.appendChild(document.createTextNode(e.features[0].properties.label));
+                        popup.appendChild(htmlElement);
+
+                    /*
+                    if(e.features[0].properties.image){
+                        let img = new Image(100,100);
+                        img.src = e.features[0].properties.image;
+                        popup.appendChild(img);
+                    }
+                    */
+                    if(e.features[0].properties.image){
+                        let imgtest = document.createElement("div");
+                        imgtest.innerHTML = e.features[0].properties.image;
+                        /*
+                        for (let imgElement of imgtest.getElementsByTagName("img")) {
+                            imgElement.style.maxWidth = "250px";
+                            imgElement.style.maxHeight = "150px";
+                        }
+                        */
+                        popup.appendChild(imgtest);
+                    }
+
+                    
+                    
+                    let params = e.features[0].properties.params.split(',');
+                    let paramLabels = e.features[0].properties.paramLabels.split(',');
+
+                    for(let i=0; i < params.length; i++){
+                        let htmlParamElement = document.createElement("p");
+                        htmlParamElement.appendChild(document.createTextNode(paramLabels[i] + ": " + params[i]));
+                        popup.appendChild(htmlParamElement);
+                    }
+                    
+                    new mapboxgl.Popup().setLngLat(coordinates)
+                        .setDOMContent(popup)
+                        .addTo(map)
+                });
+                
+            });
+            
+        });
+    </script>
+  </body>
+</html>
