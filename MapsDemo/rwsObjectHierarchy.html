@@ -16,21 +16,57 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/1.3.8/FileSaver.js"></script>
 
     <meta charset="utf-8">
-
     <style>
-        #map { position:absolute; top:0; bottom:0; width:100%; }
-        body { margin:0; padding:0; }
-        .mapboxgl-popup {
-            max-width: 350px;
-            font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+        body {
+            font-family: sans-serif;
         }
-        img {
-            max-width: 250px;
-            max-height: 150px;
+        ul {
+            list-style: none;
+            padding-left: 1.75em;
+        }
+        ul li {
+            border-bottom-left-radius: 0.75em;
+            border-top-left-radius: 0.75em;
+            margin: 2px 0;
+            position: relative;
+        }
+        ul li a {
+            background-color: #eee;
+            border-radius: 50%;
+            color: #000;
+            display: inline-block;
+            height: 1.5em;
+            left: -1.5em;
+            line-height: 1.5em;
+            position: absolute;
+            text-align: center;
+            text-decoration: none;
+            width: 1.5em;
+        }
+        ul li a.plus {
+            background-color: #ded;
+        }
+        ul li a.minus {
+            background-color: #eee;
+        }
+        ul li a:active {
+            top: 1px;
+        }
+        ul li span {
+            display: inline-block;
+            margin: 0.25em 0.5em;
+        }
+        .top-right {
+            font-size: small;
+            position: fixed;
+            right: 1em;
+            top: 1em;
         }
     </style>
   </head>
   <body>
+    <div id="root"></div>
+    <button id='show_tree' class="top-right" >Show tree</button>
     <script>
         class SPARQLQueryDispatcher {
             constructor() {
@@ -45,7 +81,99 @@
             }
         }
 
-        function addClassNode(URI){
+        function orphans() {
+        return data.filter(function(item) {
+            return item.parent === "";
+        });
+        }
+
+        function hasChildren(parentId) {
+        return data.some(function(item) {
+            return item.parent === parentId;
+        });
+        }
+
+        function getChildren(parentId) {
+        return data.filter(function(item) {
+            return item.parent === parentId;
+        });
+        }
+
+        function generateListItem(item) {
+        console.time('generateListItem');
+        const li = document.createElement('li');
+        li.id = 'item-' + item.id;
+        if (hasChildren(item.id)) {
+            const a = document.createElement('a');
+            a.href = '#';
+            a.textContent = '+';
+            a.classList.add('plus');
+            a.addEventListener('click', expand);
+            li.appendChild(a);
+        }
+
+        if(item.hasGeometry){
+            li.style.color = "red";
+        }
+        const span = document.createElement('span');
+        span.textContent = item.name;
+        li.appendChild(span);
+        console.timeEnd('generateListItem');
+        return li;
+        }
+
+        function expand(event) {
+        console.time('expand');
+        event.preventDefault();
+        event.stopPropagation();
+        const et = event.target,
+                parent = et.parentElement,
+                id = parent.id.replace('item-', ''),
+                kids = getChildren(id),
+                items = kids.map(generateListItem),
+                ul = document.createElement('ul');
+        items.forEach(function(li) {
+            ul.appendChild(li);
+        });
+        parent.appendChild(ul);
+        et.classList.remove('plus');
+        et.classList.add('minus');
+        et.textContent = '-';
+        et.removeEventListener('click', expand);
+        et.addEventListener('click', collapse);
+        console.timeEnd('expand');
+        }
+
+        function collapse(event) {
+        console.time('collapse');
+        event.preventDefault();
+        event.stopPropagation();
+        const et = event.target,
+                parent = et.parentElement,
+                ul = parent.querySelector('ul');        
+        parent.removeChild(ul);
+        et.classList.remove('minus');
+        et.classList.add('plus');
+        et.textContent = '+';
+        et.removeEventListener('click', collapse);
+        et.addEventListener('click', expand);
+        console.timeEnd('collapse');
+        }
+
+        function addOrphans() {
+        const root = document.querySelector('#root'),
+                orphansArray = orphans();
+        if (orphansArray.length) {
+            const items = orphansArray.map(generateListItem),
+                ul = document.createElement('ul');
+            items.forEach(function(li) {
+            ul.appendChild(li);
+            });
+            root.appendChild(ul);
+        }
+        }
+
+        function addClassNode(URI, hasGeometry){
 
         let dispatcher = new SPARQLQueryDispatcher();
         dispatcher.query( `
@@ -69,32 +197,34 @@
                     FILTER (LANG(?label) = "en-GB")
                 }
             }`).then( function(value) {         
-            value.results.bindings.forEach(function(element) {
+                value.results.bindings.forEach(function(element) {
 
-                let node = { 
-                    "URI": URI, 
-                    "label": "", 
-                    "parent" : ""
-                }
-
-                if(element.label && element.label.value){
-                    node["label"] = element.label.value;
-                }   
-
-                if(element.superClass && element.superClass.value){
-                    node["parent"] = element.superClass.value;
-                    if(!classes.some(e => e.URI === node.URI)){
-                        classes.push(node);
-                        addClassNode(element.superClass.value);
+                    let node = { 
+                        "id": URI, 
+                        "name": "", 
+                        "parent" : "",
+                        "hasGeometry" : hasGeometry
                     }
-                }
-                else{
-                    if(!classes.some(e => e.URI === node.URI)){
-                        classes.push(node);
+
+                    if(element.label && element.label.value){
+                        node["name"] = element.label.value;
+                    }   
+                    node["name"] += " " + URI.replace("http://otl.rws.nl/otl", " ");
+
+                    if(element.superClass && element.superClass.value){
+                        node["parent"] = element.superClass.value;
+                        if(!data.some(e => e.id === node.id)){
+                            data.push(node);
+                            addClassNode(element.superClass.value, false);
+                        }
                     }
-                }
+                    else{
+                        if(!data.some(e => e.id === node.id)){
+                            data.push(node);
+                        }
+                    }
+                });
             });
-        });
         }
 
         const sparqlQuery = `
@@ -110,15 +240,19 @@
             FILTER CONTAINS(STR(?class), "http://otl.rws.nl/otl").
         }`;
 
-        var classes = [];
+        const data = [];
 
         const queryDispatcher = new SPARQLQueryDispatcher();
         queryDispatcher.query( sparqlQuery ).then( function(value) {         
             value.results.bindings.forEach(function(element) {
-                addClassNode(element.class.value);
-                //TODO WAIT FOR RECURSION 
+                addClassNode(element.class.value, true);
             });
         });
+
+        document.getElementById("show_tree").onclick = function(){
+            addOrphans();
+            console.log(data);
+        };
 
     </script>
   </body>
