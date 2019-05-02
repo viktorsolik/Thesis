@@ -320,7 +320,7 @@
                 map.addSource("pointsDataset", {
                     type: "geojson",
                     data: pointsCollection,
-                    cluster: false
+                    cluster: true
                 });
 
                 map.addSource("linesDataset", {
@@ -434,7 +434,7 @@
                     "type": "symbol",
                     "source": "pointsDataset",
                     "layout": {
-                        "text-allow-overlap": false,
+                        "text-allow-overlap": true,
                         "text-field": ["get", "label"],
                         "text-size": 10,
                         "text-offset" : [0,1.5],
