@@ -320,7 +320,9 @@
                 map.addSource("pointsDataset", {
                     type: "geojson",
                     data: pointsCollection,
-                    cluster: true
+                    cluster: true,
+                    clusterMaxZoom: 14
+
                 });
 
                 map.addSource("linesDataset", {

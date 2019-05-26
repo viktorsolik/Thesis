@@ -140,200 +140,169 @@
             }
         }
 
-        function buildQueriesForChechcedItems(){
-            let result = ``;
-
-            let chechedWithGeometry = data.filter(function(item) {
-                return item.selected && item.hasGeometry;
-            });
-
-            //console.log(chechedWithGeometry)
-
-            if(chechedWithGeometry){
-                for(let i=0; i < chechedWithGeometry.length -1; i++){
-                    result += `
-                    {
-                        ?object geo:hasGeometry/geo:asWKT ?shape .
-                        ?object a <` + chechedWithGeometry[i].id + `> .
-                        BIND( "40" as ?hue).
-                        BIND( "https://cdn2.iconfinder.com/data/icons/flat-ui-icons-24-px/24/location-24-512.png" as ?icon).
-                        OPTIONAL {?object cbim:name ?label} .
-                    }
-                    UNION`
-                }
-                if(chechedWithGeometry.length > 0){
-                    result += `
-                    {
-                        ?object geo:hasGeometry/geo:asWKT ?shape .
-                        ?object a <` + chechedWithGeometry[chechedWithGeometry.length - 1].id + `> .
-                        BIND( "40" as ?hue).
-                        BIND( "https://cdn2.iconfinder.com/data/icons/flat-ui-icons-24-px/24/location-24-512.png" as ?icon).
-                        OPTIONAL {?object cbim:name ?label} .
-                    }`
-                }
-            }
-            return result;
-        }
-
-        function getCollectionsQuery(){
+        function classRepresentationToCollectionsQuery(uri, representation){
             const sparqlQuery =`
-                PREFIX rws: <http://otl.rws.nl/otl#>
-                PREFIX owl: <http://www.w3.org/2002/07/owl#>
-                PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-                PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-                PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-                PREFIX cbim: <http://www.coinsweb.nl/cbim-2.0.rdf#>
-                PREFIX cb: <http://cbasewrap.ontologycentral.com/vocab#>
-                PREFIX geo: <http://www.opengis.net/ont/geosparql#>
-                PREFIX coins2: <http://www.rws.nl/coins2/RefKader#>
-                PREFIX owl: <http://www.w3.org/2002/07/owl#>
+            PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+            PREFIX ex: <http://www.example.org/ex#>
+            PREFIX sh: <http://www.w3.org/ns/shacl#>
 
-                SELECT ?object ?shape ?label ?hue ?lightness ?opacity ?thickness ?icon ?image (group_concat(?param;separator=",") as ?params) (group_concat(?paramLabel;separator=",") as ?paramLabels)
-                WHERE {
-                    {       
-                        `+ buildQueriesForChechcedItems() +`  
-                    }
-                }
-                group by ?object ?shape ?label ?hue ?lightness ?thickness ?opacity ?icon ?image`;
+            SELECT ?select ?prefixes
+            WHERE {
+            <` + representation + `> sh:sparql/sh:select ?select;
+                sh:sparql/sh:prefixes/rdf:value ?prefixes.
+            }
+            `;
             
             const queryDispatcher = new SPARQLQueryDispatcher();
-            queryDispatcher.query( sparqlQuery ).then( function(value) { 
+            queryDispatcher.query( sparqlQuery ).then( function(representation_results) { 
 
-                pointsCollection.features = [];
-                linesCollection.features = [];
-                polygonsCollection.features = [];
+                let classSparqlQuery = "";
 
-                if((value.results.bindings.length > 0) && (Object.entries(value.results.bindings[0]).length > 0)){  
+                if((representation_results.results.bindings.length > 0) && (Object.entries(representation_results.results.bindings[0]).length > 0)){  
 
-                    
-
-
-                    value.results.bindings.forEach(function(element) {
-                        const RE_WKT = /\<(?<projection>.*)\> (?<wkt>.*)/g;
-                        var wktLiteralMatches = RE_WKT.exec(element.shape.value);
-
-                        //console.log(wktLiteralMatches.groups.projection);
-                        //console.log(wktLiteralMatches.groups.wkt);
-                        
-                        var geoJSON = { 
-                            "type": "Feature",
-                            "properties": {},
-                            "geometry": {}
-                        }
-                        geoJSON.geometry = Terraformer.WKT.parse(wktLiteralMatches.groups.wkt);
-                        geoJSON.properties["projection"] = "EPSG:" + wktLiteralMatches.groups.projection.match(/([0-9]{4,})/g);
-
-                        if(element.label && element.label.value){
-                            geoJSON.properties["label"] = element.label.value;
-                        }
-                        else{
-                            geoJSON.properties["label"] = "";
-                        }
-                        
-
-                        let hue = "0", lig = "0", sat = "0", opa = "0";
-                        if(element.hue && (element.hue.value != "null")){
-                            hue = element.hue.value;
-                            sat = "70";
-                        }
-
-                        if(element.lightness && (element.lightness.value != "null")){
-                            lig = element.lightness.value;
-                        }
-                        else{
-                            lig = "50";
-                        }
-
-                        if(element.opacity && (element.opacity.value != "null")){
-                            opa = element.opacity.value;
-                        }
-                        else{
-                            opa= "1";
-                        }
-
-                        geoJSON.properties["color"] = "hsla("+ hue + "," + sat + "%," + lig + "%," + opa + ")";
-                        
-                        if(element.icon && element.icon.value){
-                            geoJSON.properties["icon"] = element.icon.value;
-
-                            if(!icons.includes(element.icon.value)){
-                                icons.push(element.icon.value);
-                            }
-                        }
-                        //TODO add else statement
-
-                        if(element.params && element.params.value){
-                            geoJSON.properties["params"] = element.params.value;
-                        }
-                        else{
-                            geoJSON.properties["params"] = "";
-                        }
-
-                        if(element.paramLabels && element.paramLabels.value){
-                            geoJSON.properties["paramLabels"] = element.paramLabels.value;
-                        }
-                        else{
-                            geoJSON.properties["paramLabels"] = "";
-                        }
-
-
-                        if(element.image && element.image.value){
-                            geoJSON.properties["image"] = element.image.value;
-                        }
-                        else{
-                            geoJSON.properties["image"] = "";
-                        }
-
-                        if(element.thickness && element.thickness.value){
-                            geoJSON.properties["thickness"] = element.thickness.value;
-                        }
-                        else{
-                            geoJSON.properties["thickness"] = "5";
-                        }
-
-                        if(geoJSON.geometry.type){
-                            if(geoJSON.geometry.type == "Point"){
-                                geoJSON.geometry.coordinates = proj4(proj4(geoJSON.properties["projection"]),proj4('EPSG:4326')).forward([geoJSON.geometry.coordinates[0], geoJSON.geometry.coordinates[1]]);
-                                pointsCollection.features.push(geoJSON);
-                            }
-
-                            if(geoJSON.geometry.type == "LineString"){
-                                for(var x = 0; x < geoJSON.geometry.coordinates.length; x++)
-                                {
-                                    geoJSON.geometry.coordinates[x] = proj4(proj4(geoJSON.properties["projection"]),proj4('EPSG:4326')).forward([geoJSON.geometry.coordinates[x][0], geoJSON.geometry.coordinates[x][1]]);
-                                }
-                                linesCollection.features.push(geoJSON); 
-                            }
-
-                            if(geoJSON.geometry.type == "Polygon"){
-                                for(var x = 0; x < geoJSON.geometry.coordinates.length; x++)
-                                {
-                                    for(var y = 0; y < geoJSON.geometry.coordinates[x].length; y++)
-                                    {
-                                        geoJSON.geometry.coordinates[x][y] = proj4(proj4(geoJSON.properties["projection"]),proj4('EPSG:4326')).forward([geoJSON.geometry.coordinates[x][y][0], geoJSON.geometry.coordinates[x][y][1]]);
-                                    }
-                                }
-                                polygonsCollection.features.push(geoJSON);
-                            }
-                        }
-                        //console.log(geoJSON);                   
-                    });
+                    classSparqlQuery += representation_results.results.bindings[0].prefixes.value;
+                    classSparqlQuery += "\n\n";
+                    classSparqlQuery += representation_results.results.bindings[0].select.value.replace("$class", "<" + uri + ">");
+                    //console.log(classSparqlQuery);
                 }
+                
+                queryDispatcher.query( classSparqlQuery ).then( function(value) {
 
-                console.log(pointsCollection);
-                console.log(linesCollection);
-                console.log(polygonsCollection);
+                    pointsCollection.features = [];
+                    linesCollection.features = [];
+                    polygonsCollection.features = [];
 
-                map.getSource('pointsDataset').setData(pointsCollection);
-                map.getSource('linesDataset').setData(linesCollection);
-                map.getSource('polygonsDataset').setData(polygonsCollection);
+                    if((value.results.bindings.length > 0) && (Object.entries(value.results.bindings[0]).length > 0)){  
 
-                icons.forEach(function(icon) {
-                    map.loadImage(icon, function(error, image) {
-                        if (error) throw error;
-                        map.addImage(icon, image, {"sdf": "true"});
+                        value.results.bindings.forEach(function(element) {
+                            const RE_WKT = /\<(?<projection>.*)\> (?<wkt>.*)/g;
+                            var wktLiteralMatches = RE_WKT.exec(element.shape.value);
+
+                            //console.log(wktLiteralMatches.groups.projection);
+                            //console.log(wktLiteralMatches.groups.wkt);
+                            
+                            var geoJSON = { 
+                                "type": "Feature",
+                                "properties": {},
+                                "geometry": {}
+                            }
+                            geoJSON.geometry = Terraformer.WKT.parse(wktLiteralMatches.groups.wkt);
+                            geoJSON.properties["projection"] = "EPSG:" + wktLiteralMatches.groups.projection.match(/([0-9]{4,})/g);
+
+                            if(element.label && element.label.value){
+                                geoJSON.properties["label"] = element.label.value;
+                            }
+                            else{
+                                geoJSON.properties["label"] = "";
+                            }
+                            
+
+                            let hue = "0", lig = "0", sat = "0", opa = "0";
+                            if(element.hue && (element.hue.value != "null")){
+                                hue = element.hue.value;
+                                sat = "70";
+                            }
+
+                            if(element.lightness && (element.lightness.value != "null")){
+                                lig = element.lightness.value;
+                            }
+                            else{
+                                lig = "50";
+                            }
+
+                            if(element.opacity && (element.opacity.value != "null")){
+                                opa = element.opacity.value;
+                            }
+                            else{
+                                opa= "1";
+                            }
+
+                            geoJSON.properties["color"] = "hsla("+ hue + "," + sat + "%," + lig + "%," + opa + ")";
+                            
+                            if(element.icon && element.icon.value){
+                                geoJSON.properties["icon"] = element.icon.value;
+
+                                if(!icons.includes(element.icon.value)){
+                                    icons.push(element.icon.value);
+                                }
+                            }
+                            //TODO add else statement
+
+                            if(element.params && element.params.value){
+                                geoJSON.properties["params"] = element.params.value;
+                            }
+                            else{
+                                geoJSON.properties["params"] = "";
+                            }
+
+                            if(element.paramLabels && element.paramLabels.value){
+                                geoJSON.properties["paramLabels"] = element.paramLabels.value;
+                            }
+                            else{
+                                geoJSON.properties["paramLabels"] = "";
+                            }
+
+
+                            if(element.image && element.image.value){
+                                geoJSON.properties["image"] = element.image.value;
+                            }
+                            else{
+                                geoJSON.properties["image"] = "";
+                            }
+
+                            if(element.thickness && element.thickness.value){
+                                geoJSON.properties["thickness"] = element.thickness.value;
+                            }
+                            else{
+                                geoJSON.properties["thickness"] = "5";
+                            }
+
+                            if(geoJSON.geometry.type){
+                                if(geoJSON.geometry.type == "Point"){
+                                    geoJSON.geometry.coordinates = proj4(proj4(geoJSON.properties["projection"]),proj4('EPSG:4326')).forward([geoJSON.geometry.coordinates[0], geoJSON.geometry.coordinates[1]]);
+                                    pointsCollection.features.push(geoJSON);
+                                }
+
+                                if(geoJSON.geometry.type == "LineString"){
+                                    for(var x = 0; x < geoJSON.geometry.coordinates.length; x++)
+                                    {
+                                        geoJSON.geometry.coordinates[x] = proj4(proj4(geoJSON.properties["projection"]),proj4('EPSG:4326')).forward([geoJSON.geometry.coordinates[x][0], geoJSON.geometry.coordinates[x][1]]);
+                                    }
+                                    linesCollection.features.push(geoJSON); 
+                                }
+
+                                if(geoJSON.geometry.type == "Polygon"){
+                                    for(var x = 0; x < geoJSON.geometry.coordinates.length; x++)
+                                    {
+                                        for(var y = 0; y < geoJSON.geometry.coordinates[x].length; y++)
+                                        {
+                                            geoJSON.geometry.coordinates[x][y] = proj4(proj4(geoJSON.properties["projection"]),proj4('EPSG:4326')).forward([geoJSON.geometry.coordinates[x][y][0], geoJSON.geometry.coordinates[x][y][1]]);
+                                        }
+                                    }
+                                    polygonsCollection.features.push(geoJSON);
+                                }
+                            }
+                            //console.log(geoJSON);                   
+                        });
+                    }
+
+                    console.log(pointsCollection);
+                    console.log(linesCollection);
+                    console.log(polygonsCollection);
+
+                    map.getSource('pointsDataset').setData(pointsCollection);
+                    map.getSource('linesDataset').setData(linesCollection);
+                    map.getSource('polygonsDataset').setData(polygonsCollection);
+
+                    icons.forEach(function(icon) {
+                        map.loadImage(icon, function(error, image) {
+                            if (error) throw error;
+                            map.addImage(icon, image, {"sdf": "true"});
+                        });
                     });
+
                 });
+                
             });
         }
             
@@ -693,12 +662,51 @@
             check.addEventListener('change', checkEvent);
             li.appendChild(check);
 
-            if(item.hasGeometry){
-                li.style.color = "red";
-            }
             const span = document.createElement('span');
             span.textContent = item.name;
             li.appendChild(span);
+
+            if(item.hasGeometry){
+                li.style.color = "red";
+
+                let select = document.createElement('select');
+                select.id = 'select-' + item.id;
+
+                item.representations.forEach(function(element) {
+                    let option = document.createElement('option'); 
+                    option.value = element.representation;
+                    option.innerHTML = element.name
+                    if(element.selected){
+                        option.selected = "selected";
+                    }
+                    //option.addEventListener('change', checkEvent); //TODO ADD SELECTION
+                    select.appendChild(option);
+                });
+
+                li.appendChild(select);
+
+                /*
+                item.representations.forEach(function(element) {
+                    let radio = document.createElement('input'); 
+                    radio.type = "radio";
+                    radio.id = 'radio-' + element.representation + '-' + item.id ;
+                    radio.name = 'radio-' + item.id;
+                    radio.value = element.representation;
+                    radio.checked = true;
+
+                    let radio_label = document.createElement('label'); 
+                    radio_label.for = radio.id;
+                    radio_label.innerHTML = element.name;
+                    radio_label.style.color = "black";
+
+                    //check.addEventListener('change', checkEvent);
+
+                    li.appendChild(radio);
+                    li.appendChild(radio_label);
+                });
+                */
+            }
+
             return li;
         }
 
@@ -732,8 +740,18 @@
             }
             else{
                 checkItem(item);
+
+                let item_representation = item.representations.filter(function(rep) {
+                    return rep.selected; //TODO ADD SELECTION EVENT
+                });
+
+                if(item.hasGeometry && item_representation){
+                    classRepresentationToCollectionsQuery(item.id, item_representation[0].representation);
+                }
+                
+                //classRepresentationToCollectionsQuery(item.id);
             }
-            getCollectionsQuery();
+            //getCollectionsQuery();
         }
         /////////////////////////////////////////////////////////////////
 
@@ -816,9 +834,30 @@
                         "name": "", 
                         "parent" : "",
                         "hasGeometry" : hasGeometry,
-                        "selected" : false
+                        "selected" : false,
+                        "representations" : []
                     }
+                    if(hasGeometry){
+                        let dispatcher_representaiton = new SPARQLQueryDispatcher();
+                        dispatcher_representaiton.query( `
+                            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+                            PREFIX adms: <http://www.w3.org/ns/adms#>
 
+                            SELECT ?label ?representation
+                            WHERE {
+                                <`+ URI +`> adms:representationTechnique ?representation.
+                                ?representation rdfs:label ?label.
+                            }`).then( function(value_representaiton) {         
+                                value_representaiton.results.bindings.forEach(function(element_representaiton) {
+                                    node.representations.push({
+                                        "name" : element_representaiton.label.value, 
+                                        "representation" : element_representaiton.representation.value,
+                                        "selected" : true//TODO FINISH DEFAULT SELECTION
+                                        });
+                                });
+                            });
+                    }
+                    
                     if(element.label && element.label.value){
                         node["name"] = element.label.value;
                     }   
