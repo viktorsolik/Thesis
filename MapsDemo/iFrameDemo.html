@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>DEMO</title>
+    </head>
+    <body>
+        <button type="button" id="test" value="0" onclick="useSelection(this)">TEST 0</button>
+        <iframe id="visualizationFrame" src="http://127.0.0.1:8000/vizuDemo5.html" width="100%" height="650px" frameBorder="0"></iframe>
+
+
+        
+        <script>
+            const selections =[
+                [
+                    {type: "http://otl.rws.nl/otl#OB01042", representation: "http://www.example.org/ex#Condition"},
+                    {type: "http://otl.rws.nl/otl#OB01309", representation: "http://www.example.org/ex#Condition"},
+                    {type: "http://otl.rws.nl/otl#OB00816", representation: "http://www.example.org/ex#Condition"},
+                    {type: "http://otl.rws.nl/otl#OB01229", representation: "http://www.example.org/ex#Condition"},
+                    {type: "http://otl.rws.nl/otl#OB01313", representation: "http://www.example.org/ex#Condition"},
+                    {type: "http://otl.rws.nl/otl#OB01219", representation: "http://www.example.org/ex#Condition"}
+                ],
+                [
+                    {type: "http://otl.rws.nl/otl#OB00972", representation: "http://www.example.org/ex#Orange"},
+                    {type: "http://otl.rws.nl/otl#OB01071", representation: "http://www.example.org/ex#DefaultRepresentation"},
+                    {type: "http://otl.rws.nl/otl#OB00971", representation: "http://www.example.org/ex#Orange"}
+                ]
+            ]
+            function useSelection(objButton){
+                var vizu = document.getElementById("visualizationFrame").contentWindow;
+                vizu.updateCollections(selections[parseInt(objButton.value)]);
+            }
+            
+        </script>
+    </body>
+</html>

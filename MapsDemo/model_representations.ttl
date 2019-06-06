@@ -1,0 +1,452 @@
+﻿@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+@prefix skos: <http://www.w3.org/2004/02/skos/core#>
+@prefix adms: <http://www.w3.org/ns/adms#>
+@prefix sh: <http://www.w3.org/ns/shacl#>
+@prefix ex: <http://www.example.org/ex#>
+
+
+ex:AllPrefixes
+    a rdfs:Literal ;
+    rdf:value """
+        PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+        PREFIX rws: <http://otl.rws.nl/otl#>
+        PREFIX owl: <http://www.w3.org/2002/07/owl#>
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+        PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+        PREFIX cbim: <http://www.coinsweb.nl/cbim-2.0.rdf#>
+        PREFIX cb: <http://cbasewrap.ontologycentral.com/vocab#>
+        PREFIX geo: <http://www.opengis.net/ont/geosparql#>
+        PREFIX coins2: <http://www.rws.nl/coins2/RefKader#>
+        PREFIX owl: <http://www.w3.org/2002/07/owl#>
+        PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+        PREFIX adms: <http://www.w3.org/ns/adms#>
+        PREFIX ex: <http://www.example.org/ex#>
+    """. 
+    
+
+ex:DefaultRepresentation
+    a skos:Concept ;
+    rdfs:label "Default" ;
+    sh:sparql [
+            sh:message "" ;
+            sh:prefixes ex:AllPrefixes ;
+            sh:select """
+                SELECT ?object ?shape ?label ?hue ?lightness ?opacity ?thickness ?icon ?image (group_concat(?param;separator=",") as ?params) (group_concat(?paramLabel;separator=",") as ?paramLabels)
+                WHERE {
+                    {       
+                        ?object geo:hasGeometry/geo:asWKT ?shape .
+                        ?object a $class .
+                        BIND( "https://cdn2.iconfinder.com/data/icons/flat-ui-icons-24-px/24/location-24-512.png" as ?icon).
+                        OPTIONAL {?object cbim:name ?label} .  
+                    }
+                }
+                group by ?object ?shape ?label ?hue ?lightness ?thickness ?opacity ?icon ?image
+                """ ;
+        ] .
+        
+        
+        
+ex:Orange
+    a skos:Concept ;
+    rdfs:label "Orange" ;
+    sh:sparql [
+            sh:message "" ;
+            sh:prefixes ex:AllPrefixes ;
+            sh:select """
+                SELECT ?object ?shape ?label ?hue ?lightness ?opacity ?thickness ?icon ?image (group_concat(?param;separator=",") as ?params) (group_concat(?paramLabel;separator=",") as ?paramLabels)
+                WHERE {
+                    {       
+                        ?object geo:hasGeometry/geo:asWKT ?shape .
+                        ?object a $class .
+                        BIND( "40" as ?hue).
+                        BIND( "https://cdn2.iconfinder.com/data/icons/flat-ui-icons-24-px/24/location-24-512.png" as ?icon).
+                        OPTIONAL {?object cbim:name ?label} .  
+                    }
+                }
+                group by ?object ?shape ?label ?hue ?lightness ?thickness ?opacity ?icon ?image
+                """ ;
+        ] .
+        
+        
+ex:Condition
+    a skos:Concept ;
+    rdfs:label "Condition" ;
+    sh:sparql [
+            sh:message "" ;
+            sh:prefixes ex:AllPrefixes ;
+            sh:select """
+                SELECT ?object ?shape ?label ?hue ?lightness ?opacity ?thickness ?icon ?image (group_concat(?param;separator="@NEXT:") as ?params)
+                WHERE {
+                    {       
+                        ?object geo:hasGeometry/geo:asWKT ?shape .
+                        ?object a $class .
+                        OPTIONAL{
+                            ?object <http://otl.rws.nl/mc-mi-types#mit0014>/rdf:value ?condition
+                            BIND(
+                              if(?condition=1,'100',
+                                if(?condition=2,'75',
+                                  if(?condition=3,'60',
+                                    if(?condition=4,'40',
+                                      if(?condition=5,'25',
+                                        if(?condition=6,'0',
+                                          'null')))))) as ?hue)
+                        }
+                        OPTIONAL {?object cbim:name ?label} .  
+                        
+                        OPTIONAL {$class <http://otl.rws.nl/mc-mi-types#mit0033> ?image} .
+                        {
+                            OPTIONAL {
+                              $class rdfs:label ?paramValue.
+                              FILTER (LANG(?paramValue) = "en-GB") .
+                              BIND("Type" AS ?paramLabel ).
+                              BIND("" AS ?paramHref) .
+                              BIND (CONCAT("@PARAM:", STR(?paramLabel), "@HREF:", STR(?paramHref), "@VALUE:", STR(?paramValue)) AS ?param) .
+                            }.  
+                        }
+                        UNION
+                        {
+                            OPTIONAL {
+                              $class <http://otl.rws.nl/mc-mi-types#mit0123> ?paramHref.
+                              BIND("IMGeo" AS ?paramLabel ).
+                              BIND(STR(?paramHref) AS ?paramValue) . 
+                              BIND (CONCAT("@PARAM:", STR(?paramLabel), "@HREF:", STR(?paramHref), "@VALUE:", STR(?paramValue)) AS ?param) .
+                            }.  
+                        }
+                        UNION
+                        {
+                            OPTIONAL {
+                              ?object <http://otl.rws.nl/mc-mi-types#mit0014>/rdfs:label ?paramValue.
+                              BIND("Condition" AS ?paramLabel ).
+                              BIND("" AS ?paramHref) . 
+                              BIND (CONCAT("@PARAM:", STR(?paramLabel), "@HREF:", STR(?paramHref), "@VALUE:", STR(?paramValue)) AS ?param) .
+                            }.  
+                        }
+                        UNION
+                        {
+                          OPTIONAL {
+                            ?object rws:PR00105-hasproperty/cbim:datatypeValue ?paramValue.
+                            rws:PR00105-hasproperty rdfs:label ?paramLabel .
+                            BIND("" AS ?paramHref) .
+                            BIND (CONCAT("@PARAM:", STR(?paramLabel), "@HREF:", STR(?paramHref), "@VALUE:", STR(?paramValue)) AS ?param) .
+                          }.
+                        }                       
+                    }
+                }
+                group by ?object ?shape ?label ?hue ?lightness ?thickness ?opacity ?icon ?image
+                """ ;
+        ] .
+        
+ex:Documents
+    a skos:Concept ;
+    rdfs:label "Documents" ;
+    sh:sparql [
+            sh:message "" ;
+            sh:prefixes ex:AllPrefixes ;
+            sh:select """
+                SELECT ?object ?shape ?label ?hue ?lightness ?opacity ?thickness ?icon ?image (group_concat(?param;separator="@NEXT:") as ?params)
+                WHERE {
+                    {       
+                        ?object geo:hasGeometry/geo:asWKT ?shape .
+                        ?object a $class .
+
+                        OPTIONAL {?object cbim:name ?label} .  
+                        
+                        {
+                            OPTIONAL {
+                              $class <http://otl.rws.nl/mc-mi-types#mit0123> ?paramHref.
+                              BIND("IMGeo" AS ?paramLabel ).
+                              BIND(STR(?paramHref) AS ?paramValue) . 
+                              BIND (CONCAT("@PARAM:", STR(?paramLabel), "@HREF:", STR(?paramHref), "@VALUE:", STR(?paramValue)) AS ?param) .
+                            }.  
+                        }
+                    }
+                }
+                group by ?object ?shape ?label ?hue ?lightness ?thickness ?opacity ?icon ?image
+                """ ;
+        ] .
+        
+        
+ex:Test
+    a skos:Concept ;
+    rdfs:label "Test" ;
+    sh:sparql [
+            sh:message "" ;
+            sh:prefixes ex:AllPrefixes ;
+            sh:select """
+                SELECT ?object ?shape ?label ?hue ?lightness ?opacity ?thickness ?icon ?image (group_concat(?param;separator="@NEXT:") as ?params)
+                WHERE {
+                    {       
+                        ?object geo:hasGeometry/geo:asWKT ?shape .
+                        ?object a $class .
+                        OPTIONAL{
+                            ?object <http://otl.rws.nl/mc-mi-types#mit0014>/rdf:value ?condition
+                            BIND(
+                              if(?condition=1,'100',
+                                if(?condition=2,'75',
+                                  if(?condition=3,'60',
+                                    if(?condition=4,'40',
+                                      if(?condition=5,'25',
+                                        if(?condition=6,'0',
+                                          'null')))))) as ?hue)
+                        }
+                        OPTIONAL {?object cbim:name ?label} .  
+                        
+                        OPTIONAL {$class <http://otl.rws.nl/mc-mi-types#mit0033> ?image} .
+                        #<http://otl.rws.nl/mc-mi-types#mit0123>
+                        
+                        {
+                            OPTIONAL {
+                              $class rdfs:label ?paramValue.
+                              FILTER (LANG(?paramValue) = "en-GB") .
+                              BIND("Type" AS ?paramLabel ).
+                              BIND("" AS ?paramHref) 
+                              BIND (CONCAT("@PARAM:", STR(?paramLabel), "@HREF:", STR(?paramHref), "@VALUE:", STR(?paramValue)) AS ?param) .
+                            }.  
+                        }
+                        UNION
+                        {
+                            OPTIONAL {
+                                ?object cbim:description ?paramValue.
+                                BIND("Description" AS ?paramLabel ).
+                                BIND("" AS ?paramHref) 
+                                BIND (CONCAT("@PARAM:", STR(?paramLabel), "@HREF:", STR(?paramHref), "@VALUE:", STR(?paramValue)) AS ?param) .
+                            }.
+                        }
+                        UNION
+                        {
+                            OPTIONAL {
+                              ?object <http://otl.rws.nl/mc-mi-types#mit0014>/rdfs:label ?paramValue.
+                              BIND("Condition" AS ?paramLabel ).
+                              BIND("" AS ?paramHref) 
+                              BIND (CONCAT("@PARAM:", STR(?paramLabel), "@HREF:", STR(?paramHref), "@VALUE:", STR(?paramValue)) AS ?param) .
+                            }.  
+                        }
+                        UNION
+                        {
+                          OPTIONAL {
+                            ?object rws:PR00177-hasproperty/cbim:datatypeValue ?paramValue.
+                            BIND("Is Fictief" AS ?paramLabel) .
+                            BIND("" AS ?paramHref) .
+                            BIND (CONCAT("@PARAM:", STR(?paramLabel), "@HREF:", STR(?paramHref), "@VALUE:", STR(?paramValue)) AS ?param) .
+                          }.
+                        }
+                        UNION
+                        {
+                          OPTIONAL {
+                            ?object rws:PR00178-hasproperty/cbim:datatypeValue ?paramValue.
+                            BIND("Is Bord100Km" AS ?paramLabel) .
+                            BIND("" AS ?paramHref) .
+                            BIND (CONCAT("@PARAM:", STR(?paramLabel), "@HREF:", STR(?paramHref), "@VALUE:", STR(?paramValue)) AS ?param) .
+                          }.
+                        }
+                        UNION
+                        {
+                          OPTIONAL {
+                            ?object rws:PR00105-hasproperty/cbim:datatypeValue ?paramValue.
+                            rws:PR00105-hasproperty rdfs:label ?paramLabel .
+                            BIND("" AS ?paramHref) 
+                            BIND (CONCAT("@PARAM:", STR(?paramLabel), "@HREF:", STR(?paramHref), "@VALUE:", STR(?paramValue)) AS ?param) .
+                          }.
+                        }
+                        UNION
+                        {
+                            OPTIONAL { 
+                              ?object cbim:userID ?paramValue.
+                              BIND("User ID" AS ?paramLabel ).
+                              BIND("" AS ?paramHref) 
+                              BIND (CONCAT("@PARAM:", STR(?paramLabel), "@HREF:", STR(?paramHref), "@VALUE:", STR(?paramValue)) AS ?param) .
+                            }.
+                        }
+                        
+                    }
+                }
+                group by ?object ?shape ?label ?hue ?lightness ?thickness ?opacity ?icon ?image
+                """ ;
+        ] .
+
+<http://otl.rws.nl/otl#OB01688> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01042> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01140> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#IN00064> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00520> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00496> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00492> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00436> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00816> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01009> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01087> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB02859> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01076> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00971> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01004> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00797> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01062> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01621> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00486> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01399> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00501> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00543> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01436> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00513> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00505> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01385> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01067> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00430> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00885> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01297> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#IN00025> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01636> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00555> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01085> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01313> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00477> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01309> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01328> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00508> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00925> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00853> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01060> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01071> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01586> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00983> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01619> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01030> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00134> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01050> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#IN00067> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01229> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00493> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00498> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00821> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01276> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00919> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00518> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01063> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00419> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01324> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00497> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00024> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01188> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01232> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00503> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00972> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00921> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00636> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01423> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00514> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00973> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01061> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01219> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01059> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00507> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01211> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00559> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00942> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01612> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00851> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00435> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00490> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00424> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00710> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00425> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB01343> adms:representationTechnique ex:DefaultRepresentation .
+<http://otl.rws.nl/otl#OB00991> adms:representationTechnique ex:DefaultRepresentation .
+
+
+<http://otl.rws.nl/otl#OB01688> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01042> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01140> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#IN00064> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00520> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00496> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00492> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00436> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00816> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01009> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01087> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB02859> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01076> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00971> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01004> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00797> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01062> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01621> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00486> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01399> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00501> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00543> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01436> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00513> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00505> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01385> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01067> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00430> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00885> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01297> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#IN00025> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01636> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00555> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01085> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01313> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00477> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01309> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01328> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00508> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00925> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00853> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01060> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01071> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01586> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00983> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01619> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01030> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00134> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01050> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#IN00067> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01229> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00493> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00498> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00821> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01276> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00919> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00518> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01063> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00419> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01324> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00497> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00024> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01188> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01232> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00503> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00972> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00921> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00636> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01423> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00514> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00973> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01061> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01219> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01059> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00507> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01211> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00559> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00942> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01612> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00851> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00435> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00490> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00424> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00710> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00425> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB01343> adms:representationTechnique ex:Orange .
+<http://otl.rws.nl/otl#OB00991> adms:representationTechnique ex:Orange .
+
+
+<http://otl.rws.nl/otl#OB01042> adms:representationTechnique ex:Condition . 
+<http://otl.rws.nl/otl#OB01309> adms:representationTechnique ex:Condition .
+<http://otl.rws.nl/otl#OB00816> adms:representationTechnique ex:Condition .
+<http://otl.rws.nl/otl#OB01229> adms:representationTechnique ex:Condition .
+<http://otl.rws.nl/otl#OB01313> adms:representationTechnique ex:Condition .
+<http://otl.rws.nl/otl#OB01219> adms:representationTechnique ex:Condition .

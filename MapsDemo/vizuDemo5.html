@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>DEMO</title>
+
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.53.1/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.53.1/mapbox-gl.css' rel='stylesheet' />
+
+    <script src="https://code.jquery.com/jquery-1.10.2.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.4.0/proj4.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/terraformer/1.0.9/terraformer.min.js"></script>
+    <script src="https://unpkg.com/terraformer-wkt-parser@1.1.2/terraformer-wkt-parser.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/1.3.8/FileSaver.js"></script>
+
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Condensed" rel="stylesheet">
+
+    <meta charset="utf-8">
+
+    <style>
+        #map { position:absolute; top:0; bottom:0; left:30%; width:70%; }
+        body { 
+            margin:0; 
+            padding:0; 
+            font-family: 'Roboto Condensed', sans-serif;
+        }
+        .mapboxgl-popup {
+            max-width: 350px;
+            font: 13px/20px 'Roboto Condensed', sans-serif;
+        }
+        img {
+            max-width: 250px;
+            max-height: 150px;
+        }
+        #menu {
+            position: absolute;
+            background: #fff;
+            left:30%;
+            font-family: 'Roboto Condensed', sans-serif;
+        }
+
+        #root {
+            width: 30%;
+        }
+        #presetList {
+            width: 30%;
+        }
+
+        p {
+            display: block;
+            margin: 0;
+        }
+
+        h3 {
+            display: block;
+            margin: 0;
+        }
+
+        ul {
+            list-style: none;
+            padding-left: 1.75em;
+        }
+        ul li {
+            /*
+            border-bottom-left-radius: 0.75em;
+            border-top-left-radius: 0.75em;
+            margin: 2px 0;
+            */
+            position: relative;
+        }
+        
+        ul li a {
+            background-color: #eee;
+            border-radius: 50%;
+            color: #000;
+            display: inline-block;
+            height: 1.5em;
+            left: -1.5em;
+            line-height: 1.5em;
+            position: absolute;
+            text-align: center;
+            text-decoration: none;
+            width: 1.5em;
+        }
+
+        ul li a.plus {
+            background-color: #ded;
+        }
+        ul li a.minus {
+            background-color: #eee;
+        }
+        ul li a:active {
+            top: 1px;
+        }
+
+        ul li label + input {
+            margin: 0.5em 0.5rem;
+            cursor: pointer;
+            position: relative;
+        }
+    </style>
+  </head>
+  <body>
+    <div id='map'></div>
+    <div id='menu'>
+        <input id='mapbox://styles/mapbox/light-v10' type='radio' name='rtoggle' value='light' checked>
+        <label for='light'>light</label>
+        <input id='mapbox://styles/mapbox/dark-v10' type='radio' name='rtoggle' value='dark'>
+        <label for='dark'>dark</label>
+        <input id='mapbox://styles/mapbox/satellite-v9' type='radio' name='rtoggle' value='satellite'>
+        <label for='satellite'>satellite</label>
+        <input id='mapbox://styles/viktorsolik/cjuxqm75p03yr1fpsaeieb8jj' type='radio' name='rtoggle' value='blank'>
+        <label for='blank'>blank</label>
+    </div>
+    <div id="presetList"></div>
+    <div id="root"></div>
+    <script>
+        proj4.defs("EPSG:28992","+proj=sterea +lat_0=52.15616055555555 +lon_0=5.38763888888889 +k=0.9999079 +x_0=155000 +y_0=463000 +ellps=bessel +towgs84=565.417,50.3319,465.552,-0.398957,0.343988,-1.8774,4.0725 +units=m +no_defs");
+        
+        var pointsCollection = {
+            "type": "FeatureCollection",
+            "features": []
+        }
+
+        var linesCollection = {
+            "type": "FeatureCollection",
+            "features": []
+        }
+
+        var polygonsCollection = {
+            "type": "FeatureCollection",
+            "features": []
+        }
+        var icons = [];
+         
+        function getLongLatFrom28992Projection(x, y){
+            return proj4(proj4('EPSG:28992'),proj4('EPSG:4326')).forward([x,y]);
+        }
+
+        class SPARQLQueryDispatcher {
+            constructor( endpoint ) {
+                this.endpoint = "http://localhost:3030/data/sparql";
+            }
+
+            query( sparqlQuery ) {
+                const fullUrl = this.endpoint + '?query=' + encodeURIComponent( sparqlQuery );
+                const headers = { 'Accept': 'application/sparql-results+json' };
+
+                return fetch( fullUrl, { headers } ).then( body => body.json() );
+            }
+        }
+            
+        mapboxgl.accessToken = 'pk.eyJ1IjoidmlrdG9yc29saWsiLCJhIjoiY2pyM2kyeHc2MDg3bDQycDQ2dXpxemVlYiJ9.3LhNPoTaa4LqKctABvKKPQ';
+        var map = new mapboxgl.Map({
+            container: 'map', // container id
+            style: 'mapbox://styles/mapbox/light-v10', // stylesheet location
+            center: [3.647,51.481], // starting position [lng, lat]
+            zoom: 12 // starting zoom
+        });
+
+        var layerList = document.getElementById('menu');
+        var inputs = layerList.getElementsByTagName('input');
+        
+        function switchLayer(layer) {
+            var layerId = layer.target.id;
+            map.setStyle(layerId);
+        }
+        
+        for (var i = 0; i < inputs.length; i++) {
+            inputs[i].onclick = switchLayer;
+        }
+        
+        
+        map.on('style.load', function() {
+            icons.forEach(function(icon) {
+                map.loadImage(icon, function(error, image) {
+                    if (error) throw error;
+                    map.addImage(icon, image, {"sdf": "true"});
+                });
+            });
+
+            map.addSource("pointsDataset", {
+                type: "geojson",
+                data: pointsCollection,
+                cluster: false,
+                clusterMaxZoom: 14,
+            });
+
+            map.addSource("linesDataset", {
+                type: "geojson",
+                data: linesCollection
+            });
+
+            map.addSource("polygonsDataset", {
+                type: "geojson",
+                data: polygonsCollection
+            });
+
+            map.addLayer({
+                "id": "polygonFill",
+                "type": "fill",
+                "source": "polygonsDataset",
+                "paint": {
+                    "fill-opacity": 1,
+                    "fill-color" : ['get', 'color']
+                }
+            });
+
+            map.addLayer({
+                "id": "polygonLine",
+                "type": "line",
+                "source": "polygonsDataset",
+                "filter": [ '>', ["to-number", ["get", "thickness"]], 0],
+                "layout": {
+                    "line-join": "round",
+                    "line-cap": "round"
+                },
+                "paint": {
+                    "line-width": 1,
+                    "line-opacity": 0.2
+                }
+            });
+/*
+            map.addLayer({
+                "id": "polygonLabel",
+                "type": "symbol",
+                "source": "polygonsDataset",
+                "layout": {
+                    "symbol-placement": "line",
+                    "text-allow-overlap": true,
+                    "text-field": ["get", "label"],
+                    "text-size": 10,
+                    "text-offset" : [0,2],
+                    "text-anchor": "top"
+                }
+            });
+*/
+            map.addLayer({
+                "id": "lineLine",
+                "type": "line",
+                "source": "linesDataset",
+                "layout": {
+                    "line-join": "round",
+                    "line-cap": "round"
+                },
+                "paint": {
+                    "line-width": ["to-number", ["get", "thickness"]],
+                    "line-color": ['get', 'color']
+                }
+            });
+/*
+            map.addLayer({
+                "id": "lineLabel",
+                "type": "symbol",
+                "source": "linesDataset",
+                "layout": {
+                    "symbol-placement": "line",
+                    "text-allow-overlap": true,
+                    "text-field": ["get", "label"],
+                    "text-size": 10,
+                    "text-offset" : [0,2],
+                    "text-anchor": "top"
+                }
+            });
+*/
+            
+            map.addLayer({
+                "id": "pointCluster",
+                "type": "circle",
+                "source": "pointsDataset",
+                "filter": ["has", "point_count"],
+                "paint": {
+                    "circle-radius": 35,
+                    "circle-opacity" : 0.6
+                }
+            });
+
+            map.addLayer({
+                "id": "pointClusterLabel",
+                "type": "symbol",
+                "source": "pointsDataset",
+                "filter": ["has", "point_count"],
+                "layout": {
+                    "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
+                    "text-field": ["get", "point_count"],
+                    "text-size": 25,
+                },
+                "paint":{
+                    "text-color": "#FFF"
+                }
+            });
+
+            //TODO Filter out those without icons and create circle layer for them
+            
+            map.addLayer({
+                id: "pointIcon",
+                type: "symbol",
+                source: "pointsDataset",
+                filter: ["all",["!has", "point_count"],["has", "icon"]],
+                layout: {
+                    "icon-allow-overlap": true,
+                    "icon-image": ['get', 'icon'],
+                    "icon-size": 0.08,
+                },
+                paint :{
+                    "icon-color": ['get', 'color']
+                }
+            });
+            
+
+            map.addLayer({
+                "id": "pointCircle",
+                "type": "circle",
+                "source": "pointsDataset",
+                "filter": ["all",["!has", "point_count"],["!has", "icon"]],
+                "paint": {
+                    "circle-radius": 10,
+                    "circle-color": ['get', 'color'],
+                    "circle-opacity" : 0.6
+                }
+            });
+
+
+/*
+            map.addLayer({
+                "id": "pointLabel",
+                "type": "symbol",
+                "source": "pointsDataset",
+                "layout": {
+                    "text-allow-overlap": false,
+                    "text-field": ["get", "label"],
+                    "text-size": 10,
+                    "text-offset" : [0,1.3],
+                    "text-anchor": "top"
+                }
+            });
+*/
+            map.on('click', 'pointCluster', function (e) {
+                var features = map.queryRenderedFeatures(e.point, { layers: ['pointCluster'] });
+                var clusterId = features[0].properties.cluster_id;
+                map.getSource('pointsDataset').getClusterExpansionZoom(clusterId, function (err, zoom) {
+                    if (err)
+                    return;
+                
+                    map.easeTo({
+                        center: features[0].geometry.coordinates,
+                        zoom: zoom
+                    });
+                });
+            });
+
+            ///POINT POPUP HANDLING
+            map.on('click', "pointIcon", function(e) {
+                var coordinates = e.features[0].geometry.coordinates;
+
+                while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+                    coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+                }
+                
+                var popup = document.createElement("div");
+
+                let htmlElement = document.createElement("p");
+                    htmlElement.appendChild(document.createTextNode(e.features[0].properties.label));
+                    popup.appendChild(htmlElement);
+
+                if(e.features[0].properties.image){
+                    let imgtest = document.createElement("div");
+                    imgtest.innerHTML = e.features[0].properties.image;
+                    /*
+                    for (let imgElement of imgtest.getElementsByTagName("img")) {
+                        imgElement.style.maxWidth = "250px";
+                        imgElement.style.maxHeight = "150px";
+                    }
+                    */
+                    popup.appendChild(imgtest);
+                }
+
+                if(e.features[0].properties.params){
+                    let params = JSON.parse(e.features[0].properties.params);
+                    params.forEach( function(param){
+                        let htmlParamElement = document.createElement("p");
+                        htmlParamElement.appendChild(document.createTextNode(param.label + ": " + param.value));
+                        popup.appendChild(htmlParamElement);
+                    });
+                }
+                
+                new mapboxgl.Popup({closeButton: false}).setLngLat(coordinates)
+                    .setDOMContent(popup)
+                    .addTo(map)
+            });
+
+            map.on('click', "pointCircle", function(e) {
+                var coordinates = e.features[0].geometry.coordinates;
+
+                while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+                    coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+                }
+                
+                var popup = document.createElement("div");
+
+                let htmlHeadlineElement = document.createElement("h3");
+                htmlHeadlineElement.appendChild(document.createTextNode(e.features[0].properties.label));
+                popup.appendChild(htmlHeadlineElement);
+
+                let htmlLocationElement = document.createElement("p");
+                htmlLocationElement.appendChild(document.createTextNode("[" + coordinates[1] + ", " + coordinates[0] + "]"));
+                popup.appendChild(htmlLocationElement);
+
+                if(e.features[0].properties.image){
+                    let imgtest = document.createElement("div");
+                    if(e.features[0].properties.image.includes("img") || e.features[0].properties.image.includes("src")){
+                        imgtest.innerHTML = e.features[0].properties.image;
+                    }
+                    else{
+                        imgtest.innerHTML = "<img src=\"" + e.features[0].properties.image + "\"/>";
+                    }
+                    
+                    /*
+                    for (let imgElement of imgtest.getElementsByTagName("img")) {
+                        imgElement.style.maxWidth = "250px";
+                        imgElement.style.maxHeight = "150px";
+                    }
+                    */
+                    popup.appendChild(imgtest);
+                }
+
+                if(e.features[0].properties.params){
+                    let params = JSON.parse(e.features[0].properties.params);
+                    params.forEach( function(param){
+                        if(param.href){
+                            let htmlParamElement = document.createElement("p");
+                            htmlParamElement.appendChild(document.createTextNode(param.label + ": "));
+                            htmlParamElement.className = "param_line";
+
+                            let htmlLinkElement = document.createElement("a");
+                            htmlLinkElement.href = param.href;
+                            htmlLinkElement.target = "_blank";
+                            htmlLinkElement.innerHTML = param.value;
+                            htmlParamElement.appendChild(htmlLinkElement);
+
+                            popup.appendChild(htmlParamElement);
+                        }
+                        else{
+                            let htmlParamElement = document.createElement("p");
+                            htmlParamElement.appendChild(document.createTextNode(param.label + ": " + param.value));
+                            popup.appendChild(htmlParamElement);
+                        }
+                        
+                    });
+                }
+                
+                new mapboxgl.Popup({closeButton: false}).setLngLat(coordinates)
+                    .setDOMContent(popup)
+                    .addTo(map)
+            });
+
+            ///LINESTRING POPUP HANDLING
+            map.on('click', "lineLine", function(e) {
+                let coordinates = e.lngLat;
+
+                var popup = document.createElement("div");
+
+                let htmlElement = document.createElement("p");
+                    htmlElement.appendChild(document.createTextNode(e.features[0].properties.label));
+                    popup.appendChild(htmlElement);
+
+                if(e.features[0].properties.image){
+                    let imgtest = document.createElement("div");
+                    imgtest.innerHTML = e.features[0].properties.image;
+                    /*
+                    for (let imgElement of imgtest.getElementsByTagName("img")) {
+                        imgElement.style.maxWidth = "250px";
+                        imgElement.style.maxHeight = "150px";
+                    }
+                    */
+                    popup.appendChild(imgtest);
+                }
+
+                let params = [];
+                let paramLabels = [];
+                if(e.features[0].properties.params && e.features[0].properties.paramLabels){
+                    params = e.features[0].properties.params.split(',');
+                    paramLabels = e.features[0].properties.paramLabels.split(',');
+                }
+
+                for(let i=0; i < params.length; i++){
+                    let htmlParamElement = document.createElement("p");
+                    htmlParamElement.appendChild(document.createTextNode(paramLabels[i] + params[i]));
+                    popup.appendChild(htmlParamElement);
+                }
+                
+                new mapboxgl.Popup({closeButton: false}).setLngLat(coordinates)
+                    .setDOMContent(popup)
+                    .addTo(map)
+            });
+
+            ///POLYGON POPUP HANDLING
+            map.on('click', 'polygonFill', function(e) {
+                let coordinates = e.lngLat;
+
+                var popup = document.createElement("div");
+
+                let htmlElement = document.createElement("p");
+                    htmlElement.appendChild(document.createTextNode(e.features[0].properties.label));
+                    popup.appendChild(htmlElement);
+
+                if(e.features[0].properties.image){
+                    let imgtest = document.createElement("div");
+                    imgtest.innerHTML = e.features[0].properties.image;
+                    /*
+                    for (let imgElement of imgtest.getElementsByTagName("img")) {
+                        imgElement.style.maxWidth = "250px";
+                        imgElement.style.maxHeight = "150px";
+                    }
+                    */
+                    popup.appendChild(imgtest);
+                }
+                
+                let params = [];
+                let paramLabels = [];
+                if(e.features[0].properties.params && e.features[0].properties.paramLabels){
+                    params = e.features[0].properties.params.split(',');
+                    paramLabels = e.features[0].properties.paramLabels.split(',');
+                }
+
+                for(let i=0; i < params.length; i++){
+                    let htmlParamElement = document.createElement("p");
+                    htmlParamElement.appendChild(document.createTextNode(paramLabels[i] + ": " + params[i]));
+                    popup.appendChild(htmlParamElement);
+                }
+                
+                new mapboxgl.Popup({closeButton: false}).setLngLat(coordinates)
+                    .setDOMContent(popup)
+                    .addTo(map)
+            });
+            
+        });
+
+
+        //MENU
+        //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        function orphans() {
+            return data.filter(function(item) {
+                return item.parent === "";
+            });
+        }
+
+        function hasChildren(parentId) {
+            return data.some(function(item) {
+                return item.parent === parentId;
+            });
+        }
+
+        function getChildren(parentId) {
+            return data.filter(function(item) {
+                return item.parent === parentId;
+            });
+        }
+
+        function getItem(id){
+            return data.filter(function(item) {
+                return item.id === id;
+            });
+        }
+
+        function generateListItem(item) {
+            const li = document.createElement('li');
+            li.id = 'item-' + item.id;
+            if (hasChildren(item.id)) {
+                const a = document.createElement('a');
+                a.href = '#';
+                a.textContent = '+';
+                a.classList.add('plus');
+                a.addEventListener('click', expand);
+                li.appendChild(a);
+            }
+
+            const check = document.createElement('input'); 
+            check.type = "checkbox";
+            check.id = 'checkbox-' + item.id;
+            check.checked = item.selected;
+            check.addEventListener('change', checkEvent);
+            li.appendChild(check);
+
+            const label_checkbox = document.createElement('label');
+            label_checkbox.textContent = item.name;
+            label_checkbox.htmlFor = 'checkbox-' + item.id;
+            li.appendChild(label_checkbox);
+
+            if(item.hasGeometry){
+                label_checkbox.style.color = "red";
+
+                let select = document.createElement('select');
+                select.id = 'select-' + item.id;
+
+                item.representations.forEach(function(element) {
+                    let option = document.createElement('option'); 
+                    option.value = element.representation;
+                    option.innerHTML = element.name
+                    if(element.selected){
+                        option.selected = "selected";
+                    }
+                    select.appendChild(option);
+                });
+
+                select.addEventListener('change', selectEvent);
+                li.appendChild(select);
+            }
+
+            return li;
+        }
+
+        /////////////////////////////////////////////////////////////////
+        //ADD CHECK FUNC
+        /////////////////////////////////////////////////////////////////
+        function checkItem(item) {
+            getChildren(item.id).map(checkItem)
+            item.selected = true;
+
+            let checkbox = document.getElementById('checkbox-' + item.id);
+            if(checkbox) checkbox.checked = true;
+        }
+
+        function uncheckItem(item) {
+            getChildren(item.id).map(uncheckItem)
+            item.selected = false;
+            
+            let checkbox = document.getElementById('checkbox-' + item.id);
+            if(checkbox) checkbox.checked = false;
+        }
+
+        function checkEvent(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            let item = getItem(event.target.parentElement.id.replace('item-', ''))[0];
+            if(item.selected){
+                uncheckItem(item);
+            }
+            else{
+                checkItem(item);
+            }
+            updateCollections();
+        }
+
+        /////////////////////////////////////////////////////////////////
+        //SELECT FUNCTIONALITY
+        /////////////////////////////////////////////////////////////////
+        function selectEvent(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            let selection = event.target.options[event.target.selectedIndex].value;
+            let item = getItem(event.target.id.replace('select-', ''))[0];
+            
+            item.representations.forEach(function(element) {
+                if(selection === element.representation){
+                    element.selected = true;
+                }
+                else{
+                    element.selected = false;
+                }        
+            });
+
+            updateCollections();
+        }
+        /////////////////////////////////////////////////////////////////
+
+        function expand(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            const et = event.target,
+                    parent = et.parentElement,
+                    id = parent.id.replace('item-', ''),
+                    kids = getChildren(id),
+                    items = kids.map(generateListItem),
+                    ul = document.createElement('ul');
+                    ul.class = "ks-cboxtags";
+            items.forEach(function(li) {
+                ul.appendChild(li);
+            });
+            parent.appendChild(ul);
+            et.classList.remove('plus');
+            et.classList.add('minus');
+            et.textContent = '-';
+            et.removeEventListener('click', expand);
+            et.addEventListener('click', collapse);
+        }
+
+        function collapse(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            const et = event.target,
+                    parent = et.parentElement,
+                    ul = parent.querySelector('ul');        
+            parent.removeChild(ul);
+            et.classList.remove('minus');
+            et.classList.add('plus');
+            et.textContent = '+';
+            et.removeEventListener('click', collapse);
+            et.addEventListener('click', expand);
+        }
+
+        function addOrphans() {
+            const root = document.querySelector('#root'),
+                    orphansArray = orphans();
+            if (orphansArray.length) {
+                const items = orphansArray.map(generateListItem),
+                    ul = document.createElement('ul');
+                items.forEach(function(li) {
+                ul.appendChild(li);
+                });
+                root.appendChild(ul);
+            }
+        }
+
+
+        //function classRepresentationToCollectionsQuery(uri, representation){
+        function addToCollections(uri, representation){
+            const sparqlQuery =`
+            PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+            PREFIX ex: <http://www.example.org/ex#>
+            PREFIX sh: <http://www.w3.org/ns/shacl#>
+
+            SELECT ?select ?prefixes
+            WHERE {
+            <` + representation + `> sh:sparql/sh:select ?select;
+                sh:sparql/sh:prefixes/rdf:value ?prefixes.
+            }
+            `;
+            
+            const queryDispatcher = new SPARQLQueryDispatcher();
+            queryDispatcher.query( sparqlQuery ).then( function(representation_results) { 
+
+                let classSparqlQuery = "";
+
+                if((representation_results.results.bindings.length > 0) && (Object.entries(representation_results.results.bindings[0]).length > 0)){  
+
+                    classSparqlQuery += representation_results.results.bindings[0].prefixes.value;
+                    classSparqlQuery += "\n\n";
+                    classSparqlQuery += representation_results.results.bindings[0].select.value.replace(/\$class/g, "<" + uri + ">");
+                    //console.log(classSparqlQuery);
+                }
+                
+                queryDispatcher.query( classSparqlQuery ).then( function(value) {
+
+                    //pointsCollection.features = [];
+                    //linesCollection.features = [];
+                    //polygonsCollection.features = [];
+
+                    if((value.results.bindings.length > 0) && (Object.entries(value.results.bindings[0]).length > 0)){  
+
+                        value.results.bindings.forEach(function(element) {
+                            const RE_WKT = /\<(?<projection>.*)\> (?<wkt>.*)/g;
+                            var wktLiteralMatches = RE_WKT.exec(element.shape.value);
+
+                            //console.log(wktLiteralMatches.groups.projection);
+                            //console.log(wktLiteralMatches.groups.wkt);
+                            
+                            var geoJSON = {
+                                "uri": uri,
+                                "type": "Feature",
+                                "properties": {},
+                                "geometry": {}
+                            }
+                            geoJSON.geometry = Terraformer.WKT.parse(wktLiteralMatches.groups.wkt);
+                            geoJSON.properties["projection"] = "EPSG:" + wktLiteralMatches.groups.projection.match(/([0-9]{4,})/g);
+
+                            if(element.label && element.label.value){
+                                geoJSON.properties["label"] = element.label.value;
+                            }
+                            else{
+                                geoJSON.properties["label"] = "";
+                            }
+                            
+
+                            let hue = "0", lig = "0", sat = "0", opa = "0";
+                            if(element.hue && (element.hue.value != "null")){
+                                hue = element.hue.value;
+                                sat = "70";
+                            }
+
+                            if(element.lightness && (element.lightness.value != "null")){
+                                lig = element.lightness.value;
+                            }
+                            else{
+                                lig = "50";
+                            }
+
+                            if(element.opacity && (element.opacity.value != "null")){
+                                opa = element.opacity.value;
+                            }
+                            else{
+                                opa= "1";
+                            }
+
+                            geoJSON.properties["color"] = "hsla("+ hue + "," + sat + "%," + lig + "%," + opa + ")";
+                            
+                            if(element.icon && element.icon.value){
+                                geoJSON.properties["icon"] = element.icon.value;
+
+                                if(!icons.includes(element.icon.value)){
+                                    icons.push(element.icon.value);
+                                }
+                            }
+
+
+                            /*
+                            if(element.params && element.params.value){
+                                geoJSON.properties["params"] = element.params.value;
+                            }
+                            else{
+                                geoJSON.properties["params"] = "";
+                            }
+
+                            
+                            if(element.paramLabels && element.paramLabels.value){
+                                geoJSON.properties["paramLabels"] = element.paramLabels.value;
+                            }
+                            else{
+                                geoJSON.properties["paramLabels"] = "";
+                            }
+                            */
+                            if(element.params && element.params.value){                
+                                let paramsStrings = element.params.value.split("@NEXT:")
+                                let params = []
+
+                                paramsStrings.forEach(function(x) {
+                                    const PARAMSREGEX = /@PARAM:(.*)@HREF:(.*)@VALUE:(.*)/g
+                                    let regexRes = PARAMSREGEX.exec(x);
+                                    params.push({ label: regexRes[1], href: regexRes[2], value : regexRes[3]})
+                                });
+
+                                geoJSON.properties["params"] = params;
+                            }
+
+
+                            if(element.image && element.image.value){
+                                geoJSON.properties["image"] = element.image.value;
+                            }
+                            else{
+                                geoJSON.properties["image"] = "";
+                            }
+
+                            if(element.thickness && element.thickness.value){
+                                geoJSON.properties["thickness"] = element.thickness.value;
+                            }
+                            else{
+                                geoJSON.properties["thickness"] = "5";
+                            }
+                            //TODO find bounding boxes
+                            if(geoJSON.geometry.type){
+                                if(geoJSON.geometry.type == "Point"){
+                                    geoJSON.geometry.coordinates = proj4(proj4(geoJSON.properties["projection"]),proj4('EPSG:4326')).forward([geoJSON.geometry.coordinates[0], geoJSON.geometry.coordinates[1]]);
+                                    pointsCollection.features.push(geoJSON);
+                                }
+
+                                if(geoJSON.geometry.type == "LineString"){
+                                    for(var x = 0; x < geoJSON.geometry.coordinates.length; x++)
+                                    {
+                                        geoJSON.geometry.coordinates[x] = proj4(proj4(geoJSON.properties["projection"]),proj4('EPSG:4326')).forward([geoJSON.geometry.coordinates[x][0], geoJSON.geometry.coordinates[x][1]]);
+                                    }
+                                    linesCollection.features.push(geoJSON); 
+                                }
+
+                                if(geoJSON.geometry.type == "Polygon"){
+                                    for(var x = 0; x < geoJSON.geometry.coordinates.length; x++)
+                                    {
+                                        for(var y = 0; y < geoJSON.geometry.coordinates[x].length; y++)
+                                        {
+                                            geoJSON.geometry.coordinates[x][y] = proj4(proj4(geoJSON.properties["projection"]),proj4('EPSG:4326')).forward([geoJSON.geometry.coordinates[x][y][0], geoJSON.geometry.coordinates[x][y][1]]);
+                                        }
+                                    }
+                                    polygonsCollection.features.push(geoJSON);
+                                }
+                            }
+                            //console.log(geoJSON);                   
+                        });
+                    }
+
+                    /*
+                    console.log(pointsCollection);
+                    console.log(linesCollection);
+                    console.log(polygonsCollection);
+                    */
+                    
+                    map.getSource('pointsDataset').setData(pointsCollection);
+                    map.getSource('linesDataset').setData(linesCollection);
+                    map.getSource('polygonsDataset').setData(polygonsCollection);
+                    
+
+                    icons.forEach(function(icon) {
+                        map.loadImage(icon, function(error, image) {
+                            if (error) throw error;
+                            map.addImage(icon, image, {"sdf": "true"});
+                        });
+                    });
+
+                });
+                
+            });
+        }
+
+        function removeFromCollections(uri){
+            pointsCollection.features = pointsCollection.features.filter(function(geoJSON) {
+                return geoJSON.uri !== uri;
+            })
+
+            linesCollection.features = linesCollection.features.filter(function(geoJSON) {
+                return geoJSON.uri !== uri;
+            })
+            
+            polygonsCollection.features = polygonsCollection.features.filter(function(geoJSON) {
+                return geoJSON.uri !== uri;
+            })
+            
+            map.getSource('pointsDataset').setData(pointsCollection);
+            map.getSource('linesDataset').setData(linesCollection);
+            map.getSource('polygonsDataset').setData(polygonsCollection);
+            
+        }
+
+        function updateCollections(selection){
+            let toAdd = [];
+            let toRemove = [];
+
+            let selectedItemsAndRepresentation = [];
+            
+            if(!selection){
+                data.filter(function(item) {
+                    return item.hasGeometry && item.selected;
+                })
+                .forEach(function(assetType) {
+                    let representation_item = assetType.representations.find(function(repre) {
+                        return repre.selected;
+                    });
+                    if(representation_item){
+                        selectedItemsAndRepresentation.push({"type" : assetType.id, "representation": representation_item.representation});
+                    }
+                });
+            }
+            else{
+                selectedData.forEach(x => {
+                    let selectedItem =getItem(x.type)[0];
+                    if(selectedItem){
+                        selectedItem.selected = false;
+                        let checkbox = document.getElementById('checkbox-' + selectedItem.id);
+                        if(checkbox) checkbox.checked = false;
+                    }
+                });
+
+                selectedItemsAndRepresentation = selection;
+
+                selectedItemsAndRepresentation.forEach(x => {
+                    let selectedItem =getItem(x.type)[0];
+                    if(selectedItem){
+                        selectedItem.selected = true;
+                        selectedItem.representations.forEach(y =>{
+                            if(y.representation === x.representation){
+                                y.selected = true;
+                                let select = document.getElementById('select-' + selectedItem.id);
+                                if(select){
+                                    for(let i=0; i<select.options.length; i++){
+                                        if(select.options[i].value === y.representation){
+                                            select.selectedIndex = i;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            else{
+                                y.selected = false;
+                            }
+                        });
+                        let checkbox = document.getElementById('checkbox-' + selectedItem.id);
+                        if(checkbox) checkbox.checked = true;
+                    }
+                });
+            }
+            
+
+            selectedItemsAndRepresentation.forEach(function(elementIn) {
+                if(!selectedData.some(arrObj => arrObj.type === elementIn.type && arrObj.representation === elementIn.representation)){
+                    toAdd.push(elementIn);
+                }
+            });
+            
+            selectedData.forEach(function(elementOut) {
+                if(!selectedItemsAndRepresentation.some(arrObj => arrObj.type === elementOut.type && arrObj.representation === elementOut.representation)){
+                    toRemove.push(elementOut);
+                }
+            });
+
+            toAdd.map(x => addToCollections(x.type, x.representation));
+            toRemove.map(x => removeFromCollections(x.type));
+
+            selectedData = selectedItemsAndRepresentation;
+        }
+
+        function addClassNode(URI, name, superClass, hasGeometry, representationString){
+            let node = { 
+                "id": URI, 
+                "name": name + "  " + URI.replace("http://otl.rws.nl/otl", ""), 
+                "parent" : superClass,
+                "hasGeometry" : hasGeometry,
+                "selected" : false,
+                "representations" : []
+            }
+            let representations = [];
+            if(representationString){
+                representations = representationString.split(';').map(x => JSON.parse(x));
+            }
+
+            representations.forEach(function(element_representaiton) {
+                if(element_representaiton.name === "Default")
+                {
+                    node.representations.push({
+                        "name" : element_representaiton.name, 
+                        "representation" : element_representaiton.uri,
+                        "selected" : true
+                    });
+                }
+                else{
+                    node.representations.push({
+                        "name" : element_representaiton.name, 
+                        "representation" : element_representaiton.uri,
+                        "selected" : false
+                    });
+                }
+            });
+
+            data.push(node);
+        }
+
+
+        const data = [];
+        var selectedData = [];
+
+        const queryDispatcher = new SPARQLQueryDispatcher();
+        queryDispatcher.query( `
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+        PREFIX geo: <http://www.opengis.net/ont/geosparql#>       	
+        PREFIX adms: <http://www.w3.org/ns/adms#>
+        PREFIX rws: <http://otl.rws.nl/otl#>
+        PREFIX owl: <http://www.w3.org/2002/07/owl#>
+
+        SELECT DISTINCT ?class ?label ?superClass ?hasGeometry (group_concat(?representationJSON;separator=";") as ?representationsString)
+        WHERE {
+            {
+                SELECT ?class
+                WHERE {
+                    ?object geo:hasGeometry/geo:asWKT ?shape .
+                    ?object a/rdfs:subClassOf* ?class .
+                    ?class a owl:Class .    
+                    FILTER CONTAINS(STR(?class), "http://otl.rws.nl/otl").
+                }
+                GROUP BY ?class
+            }
+
+            OPTIONAL {
+                ?class rdfs:label ?label .
+                FILTER (LANG(?label) = "en-GB") .
+            }
+            OPTIONAL {
+                FILTER EXISTS {
+                    ?object a ?class .
+                    ?object geo:hasGeometry/geo:asWKT ?shape .
+                }
+                BIND (true AS ?hasGeometry) .
+                OPTIONAL {
+                    ?class adms:representationTechnique ?representation.
+                    ?representation rdfs:label ?representationLabel.
+                    BIND(CONCAT(STR("{ \\\"name\\\": \\\""), STR(?representationLabel), STR("\\\", \\\"uri\\\": \\\""), STR(?representation), STR("\\\"}")) AS ?representationJSON).
+                }
+            }
+            OPTIONAL {
+                ?class rdfs:subClassOf ?superClass .
+                ?superClass a owl:Class .
+                FILTER CONTAINS(STR(?superClass), "http://otl.rws.nl/otl").
+            }
+        }
+        GROUP BY ?class ?label ?superClass ?hasGeometry
+        `).then( function(value) {         
+            value.results.bindings.forEach(function(element) {
+                addClassNode(element.class.value, 
+                            ((element.label) ? element.label.value : ''), 
+                            ((element.superClass) ? element.superClass.value : ''), 
+                            ((element.hasGeometry) ? element.hasGeometry.value : false), 
+                            ((element.representationsString) ? element.representationsString.value : ''));
+            });
+            addOrphans();
+        });
+    </script>
+  </body>
+</html>
