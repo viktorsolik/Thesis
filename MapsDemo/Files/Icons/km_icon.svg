@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg8"
+   inkscape:export-filename="C:\Users\solik\Desktop\km_icon.png"
+   inkscape:export-xdpi="12.733622"
+   inkscape:export-ydpi="12.733622"
+   inkscape:version="0.92.3 (2405546, 2018-03-11)"
+   sodipodi:docname="km_icon.svg">
+  <defs
+     id="defs2" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.7"
+     inkscape:cx="422.68085"
+     inkscape:cy="751.74992"
+     inkscape:document-units="mm"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:snap-text-baseline="true"
+     inkscape:window-width="1680"
+     inkscape:window-height="987"
+     inkscape:window-x="1912"
+     inkscape:window-y="13"
+     inkscape:window-maximized="1" />
+  <metadata
+     id="metadata5">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <path
+       style="opacity:1;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.27938536;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers stroke fill"
+       d="m 71.521748,77.45307 c -2.52844,0 -4.563712,2.035272 -4.563712,4.563713 v 23.374557 c 0,2.52843 2.035272,4.56412 4.563712,4.56412 H 112.2619 c 2.52844,0 4.56412,-2.03569 4.56412,-4.56412 V 82.016783 c 0,-2.528441 -2.03568,-4.563713 -4.56412,-4.563713 z m 4.494469,5.088519 h 4.170108 v 10.586439 l 0.515493,-0.663298 2.888462,-4.132448 h 4.965418 l -4.626885,5.688649 5.069082,8.111829 h -4.774283 l -2.917619,-5.318527 -1.119668,1.084027 v 4.2345 h -4.170108 z m 22.176328,5.535579 c 1.591393,0 2.716225,0.620872 3.374385,1.862336 0.91359,-1.241464 2.21525,-1.862336 3.90488,-1.862336 2.78985,0 4.21918,1.671064 4.28795,5.012792 v 9.0428 h -4.17011 v -8.813602 c 0,-0.799293 -0.12767,-1.36873 -0.38308,-1.708857 -0.25541,-0.340127 -0.68758,-0.510234 -1.29663,-0.510234 -0.77605,0 -1.35572,0.412299 -1.73882,1.237107 l 0.0295,0.433691 v 9.361895 h -4.170108 v -8.788087 c 0,-0.790792 -0.122924,-1.360235 -0.368502,-1.708865 -0.245585,-0.357132 -0.682505,-0.535741 -1.311205,-0.535741 -0.717109,0 -1.286859,0.335755 -1.709265,1.0075 V 102.13276 H 90.471481 V 88.332282 h 3.904874 l 0.117841,1.275573 c 0.933221,-1.020381 2.165893,-1.530687 3.698343,-1.530687 z"
+       id="rect864"
+       inkscape:connector-curvature="0"
+       inkscape:export-xdpi="12.733622"
+       inkscape:export-ydpi="12.733622" />
+  </g>
+</svg>

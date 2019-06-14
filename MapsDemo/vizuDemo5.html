@@ -17,17 +17,19 @@
 
     <link href="https://fonts.googleapis.com/css?family=Roboto+Condensed" rel="stylesheet">
 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
+
     <meta charset="utf-8">
 
     <style>
-        #map { position:absolute; top:0; bottom:0; left:30%; width:70%; }
+        #map { position:absolute; top:0; bottom:0; left:25%; width:75%; }
         body { 
             margin:0; 
             padding:0; 
             font-family: 'Roboto Condensed', sans-serif;
         }
         .mapboxgl-popup {
-            max-width: 350px;
+            width: 350px;
             font: 13px/20px 'Roboto Condensed', sans-serif;
         }
         img {
@@ -35,17 +37,24 @@
             max-height: 150px;
         }
         #menu {
-            position: absolute;
-            background: #fff;
-            left:30%;
+            position: relative;
+            /*left:30%;*/
+            float: right;
+            margin-left:auto; 
+            margin-right:0;
+            padding: 0.2em;
             font-family: 'Roboto Condensed', sans-serif;
+            font-size: 16px;
+            background: rgba(255, 255, 255, 0.5);
+
         }
 
         #root {
-            width: 30%;
-        }
-        #presetList {
-            width: 30%;
+            position: relative;
+            width: 25%;
+            height: 43.5em;
+            overflow: auto;
+            background: rgba(255, 255, 255, 1);
         }
 
         p {
@@ -60,7 +69,9 @@
 
         ul {
             list-style: none;
-            padding-left: 1.75em;
+            padding-left: 1em;
+            font-family: 'Roboto Condensed', sans-serif;
+            font-size: 18px;
         }
         ul li {
             /*
@@ -72,47 +83,74 @@
         }
         
         ul li a {
-            background-color: #eee;
-            border-radius: 50%;
+            /*background-color: #eee;
+            border-radius: 50%;*/
             color: #000;
             display: inline-block;
+            /*
             height: 1.5em;
             left: -1.5em;
             line-height: 1.5em;
             position: absolute;
-            text-align: center;
+            */
+            position: relative;
+            vertical-align: middle;
             text-decoration: none;
-            width: 1.5em;
+            font-size: 15px;
+            font-weight: bold;
+            width: 1em;
         }
-
+        /*
         ul li a.plus {
             background-color: #ded;
         }
         ul li a.minus {
             background-color: #eee;
         }
+        */
         ul li a:active {
             top: 1px;
         }
 
-        ul li label + input {
-            margin: 0.5em 0.5rem;
+        ul li label {
+            margin-left: 0.2em;
             cursor: pointer;
             position: relative;
+            vertical-align: middle;
         }
+
+        ul li input {
+            margin-left: 0.2em;
+            cursor: pointer;
+            position: relative;
+            vertical-align: middle;
+        }
+
+        select {
+            margin-left: 0.5em;
+        }
+
+        .rdfLink {
+            position: relative;
+            float: right;
+            margin-left:auto; 
+            margin-right:0;
+            padding: 2px;
+        }
+
     </style>
   </head>
   <body>
     <div id='map'></div>
     <div id='menu'>
         <input id='mapbox://styles/mapbox/light-v10' type='radio' name='rtoggle' value='light' checked>
-        <label for='light'>light</label>
+        <label for='light'>Light</label>
         <input id='mapbox://styles/mapbox/dark-v10' type='radio' name='rtoggle' value='dark'>
-        <label for='dark'>dark</label>
+        <label for='dark'>Dark</label>
         <input id='mapbox://styles/mapbox/satellite-v9' type='radio' name='rtoggle' value='satellite'>
-        <label for='satellite'>satellite</label>
+        <label for='satellite'>Satellite</label>
         <input id='mapbox://styles/viktorsolik/cjuxqm75p03yr1fpsaeieb8jj' type='radio' name='rtoggle' value='blank'>
-        <label for='blank'>blank</label>
+        <label for='blank'>Blank</label>
     </div>
     <div id="presetList"></div>
     <div id="root"></div>
@@ -175,10 +213,12 @@
         
         map.on('style.load', function() {
             icons.forEach(function(icon) {
-                map.loadImage(icon, function(error, image) {
-                    if (error) throw error;
-                    map.addImage(icon, image, {"sdf": "true"});
-                });
+                if(!map.hasImage(icon)){
+                    map.loadImage(icon, function(error, image) {
+                        if (error) throw error;//TODO maybe just break 
+                        map.addImage(icon, image, {"sdf": "true"});
+                    });
+                }
             });
 
             map.addSource("pointsDataset", {
@@ -302,10 +342,12 @@
                 layout: {
                     "icon-allow-overlap": true,
                     "icon-image": ['get', 'icon'],
-                    "icon-size": 0.08,
+                    //"icon-size": 0.08,
+                    "icon-size": 1
                 },
                 paint :{
-                    "icon-color": ['get', 'color']
+                    "icon-color": ['get', 'color'],
+                    "icon-opacity" : 1//TODO CHCECK
                 }
             });
             
@@ -316,9 +358,8 @@
                 "source": "pointsDataset",
                 "filter": ["all",["!has", "point_count"],["!has", "icon"]],
                 "paint": {
-                    "circle-radius": 10,
-                    "circle-color": ['get', 'color'],
-                    "circle-opacity" : 0.6
+                    "circle-radius": 8,
+                    "circle-color": ['get', 'color']
                 }
             });
 
@@ -361,28 +402,67 @@
                 
                 var popup = document.createElement("div");
 
-                let htmlElement = document.createElement("p");
-                    htmlElement.appendChild(document.createTextNode(e.features[0].properties.label));
-                    popup.appendChild(htmlElement);
+                let htmlLinkImgRef = document.createElement("a");
+                htmlLinkImgRef.href = e.features[0].properties.uri;
+                htmlLinkImgRef.target = "_blank";
+                htmlLinkImgRef.innerHTML = '<img src="https://i.imgur.com/oMDN6Ov.png" width="18px" height="18px">'
+                htmlLinkImgRef.classList.add("rdfLink");
+                popup.appendChild(htmlLinkImgRef);
+
+                let htmlHeadlineElement = document.createElement("h3");
+                htmlHeadlineElement.appendChild(document.createTextNode(e.features[0].properties.label));
+                popup.appendChild(htmlHeadlineElement);
+
+                let htmlLocationElement = document.createElement("a");
+                htmlLocationElement.href = 'http://maps.google.com/maps?q=&layer=c&cbll=' + coordinates[1] + "," + coordinates[0];
+                htmlLocationElement.target = "_blank";
+                htmlLocationElement.innerHTML = "[" + coordinates[1] + ", " + coordinates[0] + "]";
+                popup.appendChild(htmlLocationElement);
+                
 
                 if(e.features[0].properties.image){
                     let imgtest = document.createElement("div");
-                    imgtest.innerHTML = e.features[0].properties.image;
-                    /*
-                    for (let imgElement of imgtest.getElementsByTagName("img")) {
-                        imgElement.style.maxWidth = "250px";
-                        imgElement.style.maxHeight = "150px";
+                    if(e.features[0].properties.image.includes("img") && e.features[0].properties.image.includes("src")){
+                        imgtest.innerHTML = e.features[0].properties.image;
                     }
-                    */
+                    else{
+                        imgtest.innerHTML = "<img src=\"" + e.features[0].properties.image + "\"/>";
+                    }
                     popup.appendChild(imgtest);
                 }
 
                 if(e.features[0].properties.params){
                     let params = JSON.parse(e.features[0].properties.params);
                     params.forEach( function(param){
-                        let htmlParamElement = document.createElement("p");
-                        htmlParamElement.appendChild(document.createTextNode(param.label + ": " + param.value));
-                        popup.appendChild(htmlParamElement);
+                        if(param.href){
+                            
+                            let htmlParamElement = document.createElement("p");
+                            if(param.label){
+                                htmlParamElement.appendChild(document.createTextNode(param.label + ": "));
+                            }
+                            htmlParamElement.className = "param_line";
+                   
+
+                            let htmlLinkElement = document.createElement("a");
+                            htmlLinkElement.href = param.href;
+                            htmlLinkElement.target = "_blank";
+                            htmlLinkElement.innerHTML = param.value;
+                            htmlParamElement.appendChild(htmlLinkElement);
+
+                            popup.appendChild(htmlParamElement);
+                        }
+                        else{
+                            let htmlParamElement = document.createElement("p");
+                            if(param.label){
+                                htmlParamElement.appendChild(document.createTextNode(param.label + ": " + param.value));
+                            }
+                            else{
+                                htmlParamElement.appendChild(document.createTextNode(param.value));
+                            }
+                            
+                            popup.appendChild(htmlParamElement);
+                        }
+                        
                     });
                 }
                 
@@ -400,29 +480,33 @@
                 
                 var popup = document.createElement("div");
 
+                let htmlLinkImgRef = document.createElement("a");
+                htmlLinkImgRef.href = e.features[0].properties.uri;
+                htmlLinkImgRef.target = "_blank";
+                htmlLinkImgRef.innerHTML = '<img src="https://i.imgur.com/oMDN6Ov.png" width="18px" height="18px">'
+                htmlLinkImgRef.classList.add("rdfLink");
+                popup.appendChild(htmlLinkImgRef);
+
                 let htmlHeadlineElement = document.createElement("h3");
                 htmlHeadlineElement.appendChild(document.createTextNode(e.features[0].properties.label));
                 popup.appendChild(htmlHeadlineElement);
+               
 
-                let htmlLocationElement = document.createElement("p");
-                htmlLocationElement.appendChild(document.createTextNode("[" + coordinates[1] + ", " + coordinates[0] + "]"));
+                let htmlLocationElement = document.createElement("a");
+                htmlLocationElement.href = 'http://maps.google.com/maps?q=&layer=c&cbll=' + coordinates[1] + "," + coordinates[0];
+                htmlLocationElement.target = "_blank";
+                htmlLocationElement.innerHTML = "[" + coordinates[1] + ", " + coordinates[0] + "]";
                 popup.appendChild(htmlLocationElement);
+                
 
                 if(e.features[0].properties.image){
                     let imgtest = document.createElement("div");
-                    if(e.features[0].properties.image.includes("img") || e.features[0].properties.image.includes("src")){
+                    if(e.features[0].properties.image.includes("img") && e.features[0].properties.image.includes("src")){
                         imgtest.innerHTML = e.features[0].properties.image;
                     }
                     else{
                         imgtest.innerHTML = "<img src=\"" + e.features[0].properties.image + "\"/>";
                     }
-                    
-                    /*
-                    for (let imgElement of imgtest.getElementsByTagName("img")) {
-                        imgElement.style.maxWidth = "250px";
-                        imgElement.style.maxHeight = "150px";
-                    }
-                    */
                     popup.appendChild(imgtest);
                 }
 
@@ -430,9 +514,13 @@
                     let params = JSON.parse(e.features[0].properties.params);
                     params.forEach( function(param){
                         if(param.href){
+                            
                             let htmlParamElement = document.createElement("p");
-                            htmlParamElement.appendChild(document.createTextNode(param.label + ": "));
+                            if(param.label){
+                                htmlParamElement.appendChild(document.createTextNode(param.label + ": "));
+                            }
                             htmlParamElement.className = "param_line";
+                   
 
                             let htmlLinkElement = document.createElement("a");
                             htmlLinkElement.href = param.href;
@@ -444,7 +532,13 @@
                         }
                         else{
                             let htmlParamElement = document.createElement("p");
-                            htmlParamElement.appendChild(document.createTextNode(param.label + ": " + param.value));
+                            if(param.label){
+                                htmlParamElement.appendChild(document.createTextNode(param.label + ": " + param.value));
+                            }
+                            else{
+                                htmlParamElement.appendChild(document.createTextNode(param.value));
+                            }
+                            
                             popup.appendChild(htmlParamElement);
                         }
                         
@@ -462,33 +556,68 @@
 
                 var popup = document.createElement("div");
 
-                let htmlElement = document.createElement("p");
-                    htmlElement.appendChild(document.createTextNode(e.features[0].properties.label));
-                    popup.appendChild(htmlElement);
+                let htmlLinkImgRef = document.createElement("a");
+                htmlLinkImgRef.href = e.features[0].properties.uri;
+                htmlLinkImgRef.target = "_blank";
+                htmlLinkImgRef.innerHTML = '<img src="https://i.imgur.com/oMDN6Ov.png" width="18px" height="18px">'
+                htmlLinkImgRef.classList.add("rdfLink");
+                popup.appendChild(htmlLinkImgRef);
+
+                let htmlHeadlineElement = document.createElement("h3");
+                htmlHeadlineElement.appendChild(document.createTextNode(e.features[0].properties.label));
+                popup.appendChild(htmlHeadlineElement);
+
+                let htmlLocationElement = document.createElement("a");
+                htmlLocationElement.href = 'http://maps.google.com/maps?q=&layer=c&cbll=' + coordinates[1] + "," + coordinates[0];
+                htmlLocationElement.target = "_blank";
+                htmlLocationElement.innerHTML = "[" + coordinates.lat + ", " + coordinates.lng + "]";
+                popup.appendChild(htmlLocationElement);
+                
 
                 if(e.features[0].properties.image){
                     let imgtest = document.createElement("div");
-                    imgtest.innerHTML = e.features[0].properties.image;
-                    /*
-                    for (let imgElement of imgtest.getElementsByTagName("img")) {
-                        imgElement.style.maxWidth = "250px";
-                        imgElement.style.maxHeight = "150px";
+                    if(e.features[0].properties.image.includes("img") && e.features[0].properties.image.includes("src")){
+                        imgtest.innerHTML = e.features[0].properties.image;
                     }
-                    */
+                    else{
+                        imgtest.innerHTML = "<img src=\"" + e.features[0].properties.image + "\"/>";
+                    }
                     popup.appendChild(imgtest);
                 }
 
-                let params = [];
-                let paramLabels = [];
-                if(e.features[0].properties.params && e.features[0].properties.paramLabels){
-                    params = e.features[0].properties.params.split(',');
-                    paramLabels = e.features[0].properties.paramLabels.split(',');
-                }
+                if(e.features[0].properties.params){
+                    let params = JSON.parse(e.features[0].properties.params);
+                    params.forEach( function(param){
+                        if(param.href){
+                            
+                            let htmlParamElement = document.createElement("p");
+                            if(param.label){
+                                htmlParamElement.appendChild(document.createTextNode(param.label + ": "));
+                            }
+                            htmlParamElement.className = "param_line";
+                   
 
-                for(let i=0; i < params.length; i++){
-                    let htmlParamElement = document.createElement("p");
-                    htmlParamElement.appendChild(document.createTextNode(paramLabels[i] + params[i]));
-                    popup.appendChild(htmlParamElement);
+                            let htmlLinkElement = document.createElement("a");
+                            htmlLinkElement.href = param.href;
+                            htmlLinkElement.target = "_blank";
+                            htmlLinkElement.innerHTML = param.value;
+                            htmlParamElement.appendChild(htmlLinkElement);
+
+                            popup.appendChild(htmlParamElement);
+                        }
+                        else{
+                            let htmlParamElement = document.createElement("p");
+                            if(param.label){
+                                htmlParamElement.appendChild(document.createTextNode(param.label + ": " + param.value));
+                            }
+                            else{
+                                htmlParamElement.appendChild(document.createTextNode(param.value));
+                            }
+                            
+                            popup.appendChild(htmlParamElement);
+                        }
+                        
+                    });
                 }
                 
                 new mapboxgl.Popup({closeButton: false}).setLngLat(coordinates)
@@ -502,38 +631,113 @@
 
                 var popup = document.createElement("div");
 
-                let htmlElement = document.createElement("p");
-                    htmlElement.appendChild(document.createTextNode(e.features[0].properties.label));
-                    popup.appendChild(htmlElement);
+                let htmlLinkImgRef = document.createElement("a");
+                htmlLinkImgRef.href = e.features[0].properties.uri;
+                htmlLinkImgRef.target = "_blank";
+                htmlLinkImgRef.innerHTML = '<img src="https://i.imgur.com/oMDN6Ov.png" width="18px" height="18px">'
+                htmlLinkImgRef.classList.add("rdfLink");
+                popup.appendChild(htmlLinkImgRef);
+
+                let htmlHeadlineElement = document.createElement("h3");
+                htmlHeadlineElement.appendChild(document.createTextNode(e.features[0].properties.label));
+                popup.appendChild(htmlHeadlineElement);
+
+                let htmlLocationElement = document.createElement("a");
+                htmlLocationElement.href = 'http://maps.google.com/maps?q=&layer=c&cbll=' + coordinates[1] + "," + coordinates[0];
+                htmlLocationElement.target = "_blank";
+                htmlLocationElement.innerHTML = "[" + coordinates.lat + ", " + coordinates.lng + "]";
+                popup.appendChild(htmlLocationElement);
+                
 
                 if(e.features[0].properties.image){
                     let imgtest = document.createElement("div");
-                    imgtest.innerHTML = e.features[0].properties.image;
-                    /*
-                    for (let imgElement of imgtest.getElementsByTagName("img")) {
-                        imgElement.style.maxWidth = "250px";
-                        imgElement.style.maxHeight = "150px";
+                    if(e.features[0].properties.image.includes("img") && e.features[0].properties.image.includes("src")){
+                        imgtest.innerHTML = e.features[0].properties.image;
                     }
-                    */
+                    else{
+                        imgtest.innerHTML = "<img src=\"" + e.features[0].properties.image + "\"/>";
+                    }
                     popup.appendChild(imgtest);
                 }
-                
-                let params = [];
-                let paramLabels = [];
-                if(e.features[0].properties.params && e.features[0].properties.paramLabels){
-                    params = e.features[0].properties.params.split(',');
-                    paramLabels = e.features[0].properties.paramLabels.split(',');
-                }
 
-                for(let i=0; i < params.length; i++){
-                    let htmlParamElement = document.createElement("p");
-                    htmlParamElement.appendChild(document.createTextNode(paramLabels[i] + ": " + params[i]));
-                    popup.appendChild(htmlParamElement);
+                if(e.features[0].properties.params){
+                    let params = JSON.parse(e.features[0].properties.params);
+                    params.forEach( function(param){
+                        if(param.href){
+                            
+                            let htmlParamElement = document.createElement("p");
+                            if(param.label){
+                                htmlParamElement.appendChild(document.createTextNode(param.label + ": "));
+                            }
+                            htmlParamElement.className = "param_line";
+                   
+
+                            let htmlLinkElement = document.createElement("a");
+                            htmlLinkElement.href = param.href;
+                            htmlLinkElement.target = "_blank";
+                            htmlLinkElement.innerHTML = param.value;
+                            htmlParamElement.appendChild(htmlLinkElement);
+
+                            popup.appendChild(htmlParamElement);
+                        }
+                        else{
+                            let htmlParamElement = document.createElement("p");
+                            if(param.label){
+                                htmlParamElement.appendChild(document.createTextNode(param.label + ": " + param.value));
+                            }
+                            else{
+                                htmlParamElement.appendChild(document.createTextNode(param.value));
+                            }
+                            
+                            popup.appendChild(htmlParamElement);
+                        }
+                        
+                    });
                 }
                 
                 new mapboxgl.Popup({closeButton: false}).setLngLat(coordinates)
                     .setDOMContent(popup)
                     .addTo(map)
+            });
+
+            map.on('mouseenter', 'pointCluster', function() {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+                
+            map.on('mouseleave', 'pointCluster', function() {
+                map.getCanvas().style.cursor = '';
+            });
+
+            map.on('mouseenter', 'pointIcon', function() {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+                
+            map.on('mouseleave', 'pointIcon', function() {
+                map.getCanvas().style.cursor = '';
+            });
+
+            map.on('mouseenter', 'pointCircle', function() {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+                
+            map.on('mouseleave', 'pointCircle', function() {
+                map.getCanvas().style.cursor = '';
+            });
+
+            map.on('mouseenter', 'pointlineLine', function() {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+                
+            map.on('mouseleave', 'lineLine', function() {
+                map.getCanvas().style.cursor = '';
+            });
+
+            map.on('mouseenter', 'polygonFill', function() {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+                
+            map.on('mouseleave', 'polygonFill', function() {
+                map.getCanvas().style.cursor = '';
             });
             
         });
@@ -576,6 +780,10 @@
                 a.addEventListener('click', expand);
                 li.appendChild(a);
             }
+            else{
+                const a = document.createElement('a');
+                li.appendChild(a);   
+            }
 
             const check = document.createElement('input'); 
             check.type = "checkbox";
@@ -586,11 +794,12 @@
 
             const label_checkbox = document.createElement('label');
             label_checkbox.textContent = item.name;
+            label_checkbox.title = item.id.replace("http://otl.rws.nl/otl#", "");
             label_checkbox.htmlFor = 'checkbox-' + item.id;
             li.appendChild(label_checkbox);
 
             if(item.hasGeometry){
-                label_checkbox.style.color = "red";
+                label_checkbox.style.color = "green";
 
                 let select = document.createElement('select');
                 select.id = 'select-' + item.id;
@@ -758,9 +967,9 @@
                             //console.log(wktLiteralMatches.groups.wkt);
                             
                             var geoJSON = {
-                                "uri": uri,
+                                "class": uri,
                                 "type": "Feature",
-                                "properties": {},
+                                "properties": {"uri": element.object.value,},
                                 "geometry": {}
                             }
                             geoJSON.geometry = Terraformer.WKT.parse(wktLiteralMatches.groups.wkt);
@@ -890,28 +1099,34 @@
                     
 
                     icons.forEach(function(icon) {
-                        map.loadImage(icon, function(error, image) {
-                            if (error) throw error;
-                            map.addImage(icon, image, {"sdf": "true"});
-                        });
+                        if(!map.hasImage(icon)){
+                            map.loadImage(icon, function(error, image) {
+                                if (error) throw error;//TODO maybe just break 
+                                map.addImage(icon, image, {"sdf": "true"});
+                            });
+                        }
                     });
 
                 });
                 
             });
         }
+        
+        //https://i.imgur.com/bpiW3W0.png - pin
+        //https://i.imgur.com/yjegIjQ.png - dir
+        //https://i.imgur.com/Jw69TyF.png - km
 
         function removeFromCollections(uri){
             pointsCollection.features = pointsCollection.features.filter(function(geoJSON) {
-                return geoJSON.uri !== uri;
+                return geoJSON.class !== uri;
             })
 
             linesCollection.features = linesCollection.features.filter(function(geoJSON) {
-                return geoJSON.uri !== uri;
+                return geoJSON.class !== uri;
             })
             
             polygonsCollection.features = polygonsCollection.features.filter(function(geoJSON) {
-                return geoJSON.uri !== uri;
+                return geoJSON.class !== uri;
             })
             
             map.getSource('pointsDataset').setData(pointsCollection);
@@ -1000,12 +1215,17 @@
         function addClassNode(URI, name, superClass, hasGeometry, representationString){
             let node = { 
                 "id": URI, 
-                "name": name + "  " + URI.replace("http://otl.rws.nl/otl", ""), 
+                "name": name, 
                 "parent" : superClass,
                 "hasGeometry" : hasGeometry,
                 "selected" : false,
                 "representations" : []
             }
+
+            if(!node.name){
+                node.name = URI.replace("http://otl.rws.nl/otl#", "");
+            }
+
             let representations = [];
             if(representationString){
                 representations = representationString.split(';').map(x => JSON.parse(x));
@@ -1059,9 +1279,10 @@
             }
 
             OPTIONAL {
-                ?class rdfs:label ?label .
-                FILTER (LANG(?label) = "en-GB") .
+                    ?class rdfs:label ?label .
+                    FILTER (LANG(?label) = "en-GB") .
             }
+
             OPTIONAL {
                 FILTER EXISTS {
                     ?object a ?class .

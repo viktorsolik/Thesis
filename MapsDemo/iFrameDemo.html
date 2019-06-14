@@ -2,34 +2,93 @@
 <html>
     <head>
         <title>DEMO</title>
+
+        <link href="https://fonts.googleapis.com/css?family=Roboto+Condensed" rel="stylesheet">
+
+        <style>
+        iframe{
+            width: 100%;
+            height: 43.5em;
+        }
+
+        button {
+            margin: 1px;
+            border: 1px solid #3F3F3F;
+            font: 15px/25px 'Roboto Condensed', sans-serif;
+            border-radius: 0.25em;
+            color: #3F3F3F;
+            background: white;
+            display: inline-block;
+            position: relative;
+            text-decoration: none;
+            outline:none;
+        }
+
+        button:hover {
+            background:  #3F3F3F;
+            color: white;
+        }
+
+        button:active {
+            background: rgb(97, 97, 97);
+            color: white;
+        }
+        </style>
     </head>
     <body>
-        <button type="button" id="test" value="0" onclick="useSelection(this)">TEST 0</button>
-        <iframe id="visualizationFrame" src="http://127.0.0.1:8000/vizuDemo5.html" width="100%" height="650px" frameBorder="0"></iframe>
+        <div id="button_list"></div>
+        
+        <iframe id="visualizationFrame" src="http://127.0.0.1:8000/vizuDemo5.html" frameBorder="0"></iframe>
 
 
         
         <script>
             const selections =[
-                [
-                    {type: "http://otl.rws.nl/otl#OB01042", representation: "http://www.example.org/ex#Condition"},
-                    {type: "http://otl.rws.nl/otl#OB01309", representation: "http://www.example.org/ex#Condition"},
-                    {type: "http://otl.rws.nl/otl#OB00816", representation: "http://www.example.org/ex#Condition"},
-                    {type: "http://otl.rws.nl/otl#OB01229", representation: "http://www.example.org/ex#Condition"},
-                    {type: "http://otl.rws.nl/otl#OB01313", representation: "http://www.example.org/ex#Condition"},
-                    {type: "http://otl.rws.nl/otl#OB01219", representation: "http://www.example.org/ex#Condition"}
-                ],
-                [
-                    {type: "http://otl.rws.nl/otl#OB00972", representation: "http://www.example.org/ex#Orange"},
-                    {type: "http://otl.rws.nl/otl#OB01071", representation: "http://www.example.org/ex#DefaultRepresentation"},
-                    {type: "http://otl.rws.nl/otl#OB00971", representation: "http://www.example.org/ex#Orange"}
-                ]
+                {
+                    label: "Empty",
+                    id : "0",
+                    selections: []
+                },
+                {
+                    label: "Condition of Signs",
+                    id : "1",
+                    selections: [
+                        {type: "http://otl.rws.nl/otl#OB01042", representation: "http://www.example.org/ex#Condition"},
+                        {type: "http://otl.rws.nl/otl#OB01309", representation: "http://www.example.org/ex#Condition"},
+                        {type: "http://otl.rws.nl/otl#OB00816", representation: "http://www.example.org/ex#Condition"},
+                        {type: "http://otl.rws.nl/otl#OB01229", representation: "http://www.example.org/ex#Condition"},
+                        {type: "http://otl.rws.nl/otl#OB01313", representation: "http://www.example.org/ex#Condition"},
+                        {type: "http://otl.rws.nl/otl#OB01219", representation: "http://www.example.org/ex#Condition"}
+                    ]
+                },
+                {
+                    label: "Guard Rails",
+                    id : "2",
+                    selections: [
+                        {type: "http://otl.rws.nl/otl#OB00821", representation: "http://www.example.org/ex#TypeGuard"},
+                        {type: "http://otl.rws.nl/otl#OB01636", representation: "http://www.example.org/ex#TypeGuard"},
+                        {type: "http://otl.rws.nl/otl#OB00991", representation: "http://www.example.org/ex#TypeGuard"},
+                        {type: "http://otl.rws.nl/otl#OB01399", representation: "http://www.example.org/ex#TypeGuard"}
+                    ]
+                }
+                
             ]
-            function useSelection(objButton){
+
+            function useSelection(event){
                 var vizu = document.getElementById("visualizationFrame").contentWindow;
-                vizu.updateCollections(selections[parseInt(objButton.value)]);
+                vizu.updateCollections(selections.filter(x => x.id === event.target.id)[0].selections);
             }
             
+            selections.forEach(function(selection){
+                const button = document.createElement("button");
+                button.type = "button";
+                button.id = selection.id;
+                button.addEventListener('click', useSelection);
+                button.innerHTML = selection.label;
+
+                document.getElementById("button_list").appendChild(button);
+            })
+
         </script>
     </body>
 </html>

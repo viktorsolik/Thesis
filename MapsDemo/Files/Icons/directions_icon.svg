@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   viewBox="0 0 512 512"
+   version="1.1"
+   id="svg4"
+   sodipodi:docname="directions_icon.svg"
+   inkscape:version="0.92.3 (2405546, 2018-03-11)">
+  <metadata
+     id="metadata10">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs8" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1680"
+     inkscape:window-height="987"
+     id="namedview6"
+     showgrid="false"
+     inkscape:zoom="0.921875"
+     inkscape:cx="431.70795"
+     inkscape:cy="333.07893"
+     inkscape:window-x="1912"
+     inkscape:window-y="13"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg4" />
+  <path
+     d="M 507.31,84.69 464,41.37 C 458,35.37 449.86,32 441.37,32 H 288 V 16 C 288,7.16 280.84,0 272,0 h -32 c -8.84,0 -16,7.16 -16,16 V 32 H 56 C 42.75,32 32,42.75 32,56 v 80 c 0,13.25 10.75,24 24,24 h 385.37 c 8.49,0 16.62,-3.37 22.63,-9.37 l 43.31,-43.31 c 6.25,-6.26 6.25,-16.38 0,-22.63 z M 224,496 c 0,8.84 7.16,16 16,16 h 32 c 8.84,0 16,-7.16 16,-16 V 352 H 224 Z M 456,224 H 288 v -64 h -64 v 64 H 70.63 c -8.49,0 -16.62,3.37 -22.63,9.37 L 4.69,276.69 c -6.25,6.25 -6.25,16.38 0,22.63 L 48,342.63 c 6,6 14.14,9.37 22.63,9.37 H 456 c 13.25,0 24,-10.75 24,-24 v -80 c 0,-13.25 -10.75,-24 -24,-24 z"
+     id="path2"
+     inkscape:connector-curvature="0"
+     sodipodi:nodetypes="ccscsssscssssscccssssccssccccsccsssssss"
+     inkscape:export-filename="C:\Users\solik\Desktop\directions_icon.png"
+     inkscape:export-xdpi="4.6875458"
+     inkscape:export-ydpi="4.6875458" />
+</svg>
